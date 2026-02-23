@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BarGrader">
+    <meta name="theme-color" content="#1a1a2e">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <title>BarGrader – CA Bar Exam AI Tutor</title>
+    <style>
+        /* ========== CSS Reset & Variables ========== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0f0f1a;
+            --surface: #1a1a2e;
+            --surface2: #222240;
+            --accent: #e94560;
+            --accent2: #0f3460;
+            --text: #eaeaea;
+            --text-dim: #8888aa;
+            --success: #00d474;
+            --warning: #ffa502;
+            --radius: 12px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.4);
+            --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+        }
+        html { font-size: 16px; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* ========== Layout ========== */
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: -webkit-fill-available;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* ========== Header ========== */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--surface2);
+            flex-shrink: 0;
+        }
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header .status-badge {
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: var(--surface2);
+            color: var(--text-dim);
+        }
+        .header .status-badge.connected { background: #0a3d1a; color: var(--success); }
+        .settings-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.4rem;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        /* ========== Main Content ========== */
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Status line */
+        .status-line {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            padding: 8px;
+            min-height: 32px;
+        }
+        .status-line.active { color: var(--warning); }
+
+        /* Answer display */
+        .answer-container {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin: 12px 0;
+            white-space: pre-wrap;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            display: none;
+            box-shadow: var(--shadow);
+        }
+        .answer-container.visible { display: block; }
+        .answer-container h2, .answer-container h3 {
+            color: var(--accent);
+            margin: 16px 0 8px;
+        }
+        .answer-container strong {
+            color: #ff8a80;
+        }
+
+        /* Transcript bubble */
+        .transcript-bubble {
+            background: var(--accent2);
+            color: var(--text);
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin: 8px 0;
+            font-style: italic;
+            display: none;
+        }
+        .transcript-bubble.visible { display: block; }
+
+        /* Waveform */
+        .waveform-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+            gap: 3px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .waveform-container.active { opacity: 1; }
+        .waveform-bar {
+            width: 4px;
+            background: var(--accent);
+            border-radius: 2px;
+            animation: wave 0.6s ease-in-out infinite alternate;
+        }
+        @keyframes wave {
+            from { height: 8px; }
+            to { height: 40px; }
+        }
+
+        /* ========== Input Area ========== */
+        .input-area {
+            flex-shrink: 0;
+            padding: 12px 16px;
+            background: var(--surface);
+            border-top: 1px solid var(--surface2);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .text-input {
+            flex: 1;
+            background: var(--surface2);
+            border: 1px solid #333355;
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 1rem;
+            padding: 12px 14px;
+            resize: none;
+            max-height: 120px;
+            min-height: 44px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .text-input:focus { border-color: var(--accent); }
+        .text-input::placeholder { color: var(--text-dim); }
+
+        /* Buttons */
+        .btn-mic, .btn-send {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.15s, background 0.2s;
+        }
+        .btn-mic:active, .btn-send:active { transform: scale(0.9); }
+
+        .btn-mic {
+            background: var(--accent);
+            color: white;
+            font-size: 1.3rem;
+        }
+        .btn-mic.recording {
+            background: #ff1744;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(233,69,96,0.6); }
+            50% { box-shadow: 0 0 0 12px rgba(233,69,96,0); }
+        }
+
+        .btn-send {
+            background: var(--accent2);
+            color: white;
+            font-size: 1.2rem;
+        }
+        .btn-send:hover { background: #1a508c; }
+
+        .input-hint {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-align: center;
+            padding: 6px 0 2px;
+        }
+
+        /* ========== Settings Panel ========== */
+        .settings-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 100;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .settings-overlay.open { display: flex; }
+        .settings-panel {
+            background: var(--surface);
+            width: 100%;
+            max-width: 800px;
+            max-height: 85vh;
+            border-radius: 20px 20px 0 0;
+            padding: 24px 20px;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .settings-panel h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .settings-panel .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .setting-group {
+            margin-bottom: 16px;
+        }
+        .setting-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+        .setting-group input, .setting-group select {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--surface2);
+            border: 1px solid #333355;
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.95rem;
+            outline: none;
+        }
+        .setting-group input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            background: var(--surface2);
+            border: none;
+            border-radius: 3px;
+            padding: 0;
+        }
+        .setting-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+        .range-value {
+            font-size: 0.85rem;
+            color: var(--accent);
+            float: right;
+        }
+
+        /* ========== TTS Playback Controls ========== */
+        .playback-controls {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 8px 0;
+        }
+        .playback-controls.visible { display: flex; }
+        .playback-btn {
+            background: var(--surface2);
+            border: 1px solid #333355;
+            color: var(--text);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .playback-btn:active { background: var(--accent2); }
+        .playback-btn.active { background: var(--accent); border-color: var(--accent); }
+
+        /* ========== Mode Toggle ========== */
+        .mode-toggle {
+            display: flex;
+            gap: 0;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #333355;
+        }
+        .mode-toggle button {
+            flex: 1;
+            padding: 8px;
+            background: var(--surface2);
+            border: none;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-toggle button.active {
+            background: var(--accent2);
+            color: var(--text);
+        }
+
+        /* Responsive */
+        @media (max-width: 400px) {
+            .header h1 { font-size: 1rem; }
+            .answer-container { padding: 14px; font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app" id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>BarGrader</h1>
+            <span class="status-badge" id="statusBadge">Connecting...</span>
+            <button class="settings-btn" id="settingsBtn" title="Settings">&#9881;</button>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main" id="mainContent">
+            <div class="status-line" id="statusLine">
+                Ready. Speak or type your bar exam question.
+            </div>
+
+            <!-- Voice Waveform -->
+            <div class="waveform-container" id="waveform">
+                <div class="waveform-bar" style="animation-delay: 0s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.1s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.2s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.15s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.3s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.05s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.25s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.1s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.35s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.2s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.15s"></div>
+                <div class="waveform-bar" style="animation-delay: 0.05s"></div>
+            </div>
+
+            <!-- Transcript -->
+            <div class="transcript-bubble" id="transcript"></div>
+
+            <!-- Answer -->
+            <div class="answer-container" id="answerBox"></div>
+
+            <!-- Playback Controls -->
+            <div class="playback-controls" id="playbackControls">
+                <button class="playback-btn" id="btnRepeat" title="Repeat answer">&#x1f501; Repeat</button>
+                <button class="playback-btn" id="btnPause" title="Pause/Resume">&#x23f8; Pause</button>
+                <button class="playback-btn" id="btnStop" title="Stop speaking">&#x23f9; Stop</button>
+            </div>
+        </main>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <div class="mode-toggle" id="modeToggle">
+                <button class="active" data-mode="voice">&#127908; Voice</button>
+                <button data-mode="keyboard">&#9000; Keyboard</button>
+            </div>
+            <div class="input-row">
+                <textarea class="text-input" id="textInput" placeholder="Type your question or speak..."
+                    rows="1" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+                <button class="btn-mic" id="btnMic" title="Hold to record (or tap to toggle)">&#127908;</button>
+                <button class="btn-send" id="btnSend" title="Send (Ctrl+Enter)">&#10148;</button>
+            </div>
+            <div class="input-hint" id="inputHint">
+                Voice: tap mic or say "<span id="wakeWordDisplay">hey bargrader</span>"
+                &nbsp;|&nbsp; Keyboard: Ctrl+Enter to send
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-overlay" id="settingsOverlay">
+        <div class="settings-panel">
+            <h2>
+                Settings
+                <button class="close-btn" id="settingsClose">&times;</button>
+            </h2>
+
+            <div class="setting-group">
+                <label>Speaking Speed <span class="range-value" id="speedValue">1.0x</span></label>
+                <input type="range" id="settingSpeed" min="0.5" max="2.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="setting-group">
+                <label>Voice</label>
+                <select id="settingVoice">
+                    <option value="nova">Nova (female)</option>
+                    <option value="alloy">Alloy (neutral)</option>
+                    <option value="echo">Echo (male)</option>
+                    <option value="fable">Fable (expressive)</option>
+                    <option value="onyx">Onyx (deep male)</option>
+                    <option value="shimmer">Shimmer (warm female)</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label>Silence Detection (seconds) <span class="range-value" id="silenceValue">2.0s</span></label>
+                <input type="range" id="settingSilence" min="0.5" max="5.0" step="0.5" value="2.0">
+            </div>
+
+            <div class="setting-group">
+                <label>Wake Word</label>
+                <input type="text" id="settingWakeWord" value="hey bargrader" placeholder="e.g., hey bargrader">
+            </div>
+
+            <div class="setting-group">
+                <label>Send Shortcut (Keyboard Mode)</label>
+                <select id="settingShortcut">
+                    <option value="ctrl+enter">Ctrl + Enter</option>
+                    <option value="cmd+enter">Cmd + Enter (Mac)</option>
+                    <option value="shift+enter">Shift + Enter</option>
+                    <option value="enter">Enter only</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label>Mic Sensitivity</label>
+                <select id="settingMicSensitivity">
+                    <option value="high" selected>High (whisper-level)</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low (loud only)</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label>Server URL</label>
+                <input type="text" id="settingServerUrl" readonly>
+            </div>
+
+            <div class="setting-group">
+                <label>Docs in Knowledge Base</label>
+                <input type="text" id="settingDocCount" readonly>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== JavaScript ========== -->
+    <script>
+    (function() {
+        'use strict';
+
+        // ===== State =====
+        const state = {
+            ws: null,
+            connected: false,
+            recording: false,
+            mode: 'voice', // 'voice' | 'keyboard'
+            mediaRecorder: null,
+            audioChunks: [],
+            audioContext: null,
+            analyser: null,
+            stream: null,
+            silenceTimer: null,
+            silenceThreshold: 2.0,
+            wakeWord: 'hey bargrader',
+            wakeWordActive: false,
+            wakeWordRecognition: null,
+            ttsSpeed: 1.0,
+            ttsVoice: 'nova',
+            sendShortcut: 'ctrl+enter',
+            micSensitivity: 'high',
+            audioQueue: [],
+            isPlaying: false,
+            isPaused: false,
+            currentAudio: null,
+            fullAnswer: '',
+        };
+
+        // ===== DOM Elements =====
+        const $ = id => document.getElementById(id);
+        const statusBadge = $('statusBadge');
+        const statusLine = $('statusLine');
+        const waveform = $('waveform');
+        const transcript = $('transcript');
+        const answerBox = $('answerBox');
+        const textInput = $('textInput');
+        const btnMic = $('btnMic');
+        const btnSend = $('btnSend');
+        const inputHint = $('inputHint');
+        const playbackControls = $('playbackControls');
+        const mainContent = $('mainContent');
+
+        // ===== WebSocket =====
+        function connectWS() {
+            const wsUrl = location.protocol === 'https:'
+                ? `wss://${location.host}/ws`
+                : `ws://${location.host}/ws`;
+            
+            state.ws = new WebSocket(wsUrl);
+            
+            state.ws.onopen = () => {
+                state.connected = true;
+                statusBadge.textContent = 'Connected';
+                statusBadge.className = 'status-badge connected';
+                console.log('[WS] Connected');
+                // Start ping keepalive
+                setInterval(() => {
+                    if (state.ws?.readyState === WebSocket.OPEN) {
+                        state.ws.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 30000);
+            };
+
+            state.ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                handleWSMessage(msg);
+            };
+
+            state.ws.onclose = () => {
+                state.connected = false;
+                statusBadge.textContent = 'Disconnected';
+                statusBadge.className = 'status-badge';
+                console.log('[WS] Disconnected, reconnecting in 3s...');
+                setTimeout(connectWS, 3000);
+            };
+
+            state.ws.onerror = (e) => {
+                console.error('[WS] Error:', e);
+            };
+        }
+
+        function handleWSMessage(msg) {
+            switch (msg.type) {
+                case 'status':
+                    setStatus(msg.text, true);
+                    break;
+
+                case 'transcript':
+                    transcript.textContent = `"${msg.text}"`;
+                    transcript.classList.add('visible');
+                    break;
+
+                case 'token':
+                    // Append streamed text
+                    state.fullAnswer += msg.text;
+                    answerBox.classList.add('visible');
+                    answerBox.innerHTML = renderMarkdown(state.fullAnswer);
+                    autoScroll();
+                    break;
+
+                case 'tts':
+                    // Queue TTS audio
+                    queueAudio(msg.audio_base64);
+                    break;
+
+                case 'tts_prompt':
+                    // "Would you like me to repeat?"
+                    playbackControls.classList.add('visible');
+                    setStatus(msg.text);
+                    // Also queue this as TTS
+                    break;
+
+                case 'done':
+                    setStatus('Answer complete.');
+                    playbackControls.classList.add('visible');
+                    break;
+
+                case 'error':
+                    setStatus(`Error: ${msg.text}`);
+                    break;
+
+                case 'pong':
+                    break;
+            }
+        }
+
+        // ===== Audio Recording =====
+        async function startRecording() {
+            try {
+                const constraints = {
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: state.micSensitivity !== 'high',
+                        autoGainControl: true,
+                        // High sensitivity = disable noise suppression to capture whispers
+                        ...(state.micSensitivity === 'high' ? {
+                            noiseSuppression: false,
+                            autoGainControl: true,
+                        } : {}),
+                    }
+                };
+                state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                // Setup analyser for silence detection
+                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = state.audioContext.createMediaStreamSource(state.stream);
+                state.analyser = state.audioContext.createAnalyser();
+                state.analyser.fftSize = 2048;
+                state.analyser.minDecibels = state.micSensitivity === 'high' ? -90 : -70;
+                source.connect(state.analyser);
+                
+                // Apply gain boost for high sensitivity
+                if (state.micSensitivity === 'high') {
+                    const gainNode = state.audioContext.createGain();
+                    gainNode.gain.value = 3.0; // 3x amplification for whisper sensitivity
+                    source.connect(gainNode);
+                    gainNode.connect(state.analyser);
+                }
+
+                // MediaRecorder
+                state.audioChunks = [];
+                state.mediaRecorder = new MediaRecorder(state.stream, {
+                    mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                        ? 'audio/webm;codecs=opus' : 'audio/webm'
+                });
+
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.audioChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = () => {
+                    const blob = new Blob(state.audioChunks, { type: 'audio/webm' });
+                    sendAudio(blob);
+                };
+
+                state.mediaRecorder.start(250); // collect chunks every 250ms
+                state.recording = true;
+                btnMic.classList.add('recording');
+                waveform.classList.add('active');
+                setStatus('Listening... speak your question');
+
+                // Start silence detection
+                startSilenceDetection();
+
+            } catch (err) {
+                console.error('[Mic] Error:', err);
+                setStatus('Microphone access denied. Please allow mic access.');
+            }
+        }
+
+        function stopRecording() {
+            if (state.mediaRecorder && state.recording) {
+                state.mediaRecorder.stop();
+                state.recording = false;
+                btnMic.classList.remove('recording');
+                waveform.classList.remove('active');
+                clearTimeout(state.silenceTimer);
+                
+                // Stop audio tracks
+                if (state.stream) {
+                    state.stream.getTracks().forEach(t => t.stop());
+                }
+                if (state.audioContext) {
+                    state.audioContext.close();
+                }
+                setStatus('Processing audio...');
+            }
+        }
+
+        function startSilenceDetection() {
+            if (!state.analyser) return;
+            const bufferLength = state.analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            let silenceStart = null;
+            const threshold = state.micSensitivity === 'high' ? 5 : 15;
+
+            function check() {
+                if (!state.recording) return;
+                state.analyser.getByteFrequencyData(dataArray);
+                const avg = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+
+                if (avg < threshold) {
+                    if (!silenceStart) silenceStart = Date.now();
+                    const elapsed = (Date.now() - silenceStart) / 1000;
+                    if (elapsed >= state.silenceThreshold) {
+                        console.log('[Mic] Silence detected, auto-stopping');
+                        stopRecording();
+                        return;
+                    }
+                } else {
+                    silenceStart = null;
+                }
+                requestAnimationFrame(check);
+            }
+            requestAnimationFrame(check);
+        }
+
+        async function sendAudio(blob) {
+            if (!state.connected) {
+                setStatus('Not connected to server');
+                return;
+            }
+            // Clear previous answer
+            resetAnswer();
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64 = reader.result.split(',')[1];
+                state.ws.send(JSON.stringify({
+                    type: 'audio',
+                    audio: base64,
+                }));
+                setStatus('Audio sent, transcribing...', true);
+            };
+            reader.readAsDataURL(blob);
+        }
+
+        function sendText(text) {
+            if (!state.connected || !text.trim()) return;
+            resetAnswer();
+            state.ws.send(JSON.stringify({
+                type: 'text',
+                text: text.trim(),
+            }));
+            transcript.textContent = `"${text.trim()}"`;
+            transcript.classList.add('visible');
+            textInput.value = '';
+            autoResizeTextarea();
+            setStatus('Generating IRAC answer...', true);
+        }
+
+        // ===== Audio Playback (TTS) =====
+        function queueAudio(base64) {
+            const audioUrl = `data:audio/mp3;base64,${base64}`;
+            state.audioQueue.push(audioUrl);
+            if (!state.isPlaying) playNextAudio();
+        }
+
+        function playNextAudio() {
+            if (state.audioQueue.length === 0) {
+                state.isPlaying = false;
+                return;
+            }
+            state.isPlaying = true;
+            const url = state.audioQueue.shift();
+            state.currentAudio = new Audio(url);
+            state.currentAudio.playbackRate = state.ttsSpeed;
+            state.currentAudio.onended = () => playNextAudio();
+            state.currentAudio.onerror = () => playNextAudio();
+            state.currentAudio.play().catch(e => {
+                console.error('[TTS] Play error:', e);
+                playNextAudio();
+            });
+        }
+
+        function stopPlayback() {
+            state.audioQueue = [];
+            if (state.currentAudio) {
+                state.currentAudio.pause();
+                state.currentAudio = null;
+            }
+            state.isPlaying = false;
+            state.isPaused = false;
+        }
+
+        function togglePause() {
+            if (!state.currentAudio) return;
+            if (state.isPaused) {
+                state.currentAudio.play();
+                state.isPaused = false;
+                $('btnPause').innerHTML = '&#x23f8; Pause';
+            } else {
+                state.currentAudio.pause();
+                state.isPaused = true;
+                $('btnPause').innerHTML = '&#x25b6; Resume';
+            }
+        }
+
+        function repeatAnswer() {
+            if (!state.fullAnswer) return;
+            stopPlayback();
+            state.ws.send(JSON.stringify({
+                type: 'repeat',
+                section: state.fullAnswer,
+            }));
+            setStatus('Repeating answer...', true);
+        }
+
+        // ===== Wake Word Detection (uses Web Speech API continuous recognition) =====
+        function startWakeWordDetection() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                console.log('[Wake] Speech recognition not supported');
+                return;
+            }
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            state.wakeWordRecognition = new SpeechRecognition();
+            state.wakeWordRecognition.continuous = true;
+            state.wakeWordRecognition.interimResults = true;
+            state.wakeWordRecognition.lang = 'en-US';
+
+            state.wakeWordRecognition.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const text = event.results[i][0].transcript.toLowerCase().trim();
+                    if (text.includes(state.wakeWord.toLowerCase())) {
+                        console.log('[Wake] Wake word detected!');
+                        state.wakeWordRecognition.stop();
+                        state.wakeWordActive = false;
+                        startRecording();
+                        return;
+                    }
+                }
+            };
+
+            state.wakeWordRecognition.onend = () => {
+                // Restart if still in wake word mode
+                if (state.wakeWordActive && !state.recording) {
+                    try { state.wakeWordRecognition.start(); } catch(e) {}
+                }
+            };
+
+            state.wakeWordActive = true;
+            try { state.wakeWordRecognition.start(); } catch(e) {}
+            console.log(`[Wake] Listening for "${state.wakeWord}"...`);
+        }
+
+        // ===== Keyboard Shortcuts =====
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Send shortcut
+                const shortcut = state.sendShortcut;
+                const isCtrlEnter = shortcut === 'ctrl+enter' && (e.ctrlKey || e.metaKey) && e.key === 'Enter';
+                const isCmdEnter = shortcut === 'cmd+enter' && e.metaKey && e.key === 'Enter';
+                const isShiftEnter = shortcut === 'shift+enter' && e.shiftKey && e.key === 'Enter';
+                const isEnter = shortcut === 'enter' && e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey;
+
+                if (isCtrlEnter || isCmdEnter || isShiftEnter || isEnter) {
+                    e.preventDefault();
+                    const text = textInput.value;
+                    if (text.trim()) sendText(text);
+                    return;
+                }
+
+                // Escape to stop recording / playback
+                if (e.key === 'Escape') {
+                    if (state.recording) stopRecording();
+                    stopPlayback();
+                    return;
+                }
+
+                // Space bar to toggle recording (when not typing)
+                if (e.key === ' ' && document.activeElement !== textInput) {
+                    e.preventDefault();
+                    if (state.recording) {
+                        stopRecording();
+                    } else {
+                        startRecording();
+                    }
+                    return;
+                }
+
+                // F1 = repeat, F2 = pause/resume, F3 = stop
+                if (e.key === 'F1') { e.preventDefault(); repeatAnswer(); }
+                if (e.key === 'F2') { e.preventDefault(); togglePause(); }
+                if (e.key === 'F3') { e.preventDefault(); stopPlayback(); }
+
+                // Bluetooth keyboard common keys mapping
+                // Page Up / Page Down for speed control
+                if (e.key === 'PageUp') { e.preventDefault(); adjustSpeed(0.1); }
+                if (e.key === 'PageDown') { e.preventDefault(); adjustSpeed(-0.1); }
+            });
+
+            // Focus text input when typing starts
+            document.addEventListener('keypress', (e) => {
+                if (state.mode === 'keyboard' && document.activeElement !== textInput
+                    && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    textInput.focus();
+                }
+            });
+        }
+
+        function adjustSpeed(delta) {
+            state.ttsSpeed = Math.max(0.5, Math.min(2.0, state.ttsSpeed + delta));
+            $('settingSpeed').value = state.ttsSpeed;
+            $('speedValue').textContent = state.ttsSpeed.toFixed(1) + 'x';
+            if (state.currentAudio) {
+                state.currentAudio.playbackRate = state.ttsSpeed;
+            }
+            setStatus(`Speed: ${state.ttsSpeed.toFixed(1)}x`);
+        }
+
+        // ===== UI Helpers =====
+        function setStatus(text, active = false) {
+            statusLine.textContent = text;
+            statusLine.className = active ? 'status-line active' : 'status-line';
+        }
+
+        function resetAnswer() {
+            state.fullAnswer = '';
+            answerBox.innerHTML = '';
+            answerBox.classList.remove('visible');
+            transcript.classList.remove('visible');
+            playbackControls.classList.remove('visible');
+            stopPlayback();
+        }
+
+        function autoScroll() {
+            mainContent.scrollTop = mainContent.scrollHeight;
+        }
+
+        function autoResizeTextarea() {
+            textInput.style.height = 'auto';
+            textInput.style.height = Math.min(textInput.scrollHeight, 120) + 'px';
+        }
+
+        function renderMarkdown(text) {
+            // Simple markdown rendering for IRAC structure
+            return text
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/### (.+)/g, '<h3>$1</h3>')
+                .replace(/## (.+)/g, '<h2>$1</h2>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/---/g, '<hr style="border-color:#333355;margin:16px 0">')
+                .replace(/\n/g, '<br>');
+        }
+
+        // ===== Event Listeners =====
+        function setupEventListeners() {
+            // Mic button
+            btnMic.addEventListener('click', () => {
+                if (state.recording) {
+                    stopRecording();
+                } else {
+                    startRecording();
+                }
+            });
+
+            // Send button
+            btnSend.addEventListener('click', () => {
+                const text = textInput.value;
+                if (text.trim()) sendText(text);
+            });
+
+            // Text input auto-resize
+            textInput.addEventListener('input', autoResizeTextarea);
+
+            // Mode toggle
+            document.querySelectorAll('#modeToggle button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('#modeToggle button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.mode = btn.dataset.mode;
+                    if (state.mode === 'keyboard') {
+                        textInput.focus();
+                        btnMic.style.display = 'none';
+                    } else {
+                        btnMic.style.display = 'flex';
+                    }
+                });
+            });
+
+            // Playback controls
+            $('btnRepeat').addEventListener('click', repeatAnswer);
+            $('btnPause').addEventListener('click', togglePause);
+            $('btnStop').addEventListener('click', stopPlayback);
+
+            // Settings
+            $('settingsBtn').addEventListener('click', () => {
+                $('settingsOverlay').classList.add('open');
+                loadSettings();
+            });
+            $('settingsClose').addEventListener('click', () => {
+                $('settingsOverlay').classList.remove('open');
+                saveSettings();
+            });
+            $('settingsOverlay').addEventListener('click', (e) => {
+                if (e.target === $('settingsOverlay')) {
+                    $('settingsOverlay').classList.remove('open');
+                    saveSettings();
+                }
+            });
+
+            // Settings controls
+            $('settingSpeed').addEventListener('input', (e) => {
+                state.ttsSpeed = parseFloat(e.target.value);
+                $('speedValue').textContent = state.ttsSpeed.toFixed(1) + 'x';
+            });
+            $('settingSilence').addEventListener('input', (e) => {
+                state.silenceThreshold = parseFloat(e.target.value);
+                $('silenceValue').textContent = state.silenceThreshold.toFixed(1) + 's';
+            });
+        }
+
+        function loadSettings() {
+            $('settingSpeed').value = state.ttsSpeed;
+            $('speedValue').textContent = state.ttsSpeed.toFixed(1) + 'x';
+            $('settingVoice').value = state.ttsVoice;
+            $('settingSilence').value = state.silenceThreshold;
+            $('silenceValue').textContent = state.silenceThreshold.toFixed(1) + 's';
+            $('settingWakeWord').value = state.wakeWord;
+            $('settingShortcut').value = state.sendShortcut;
+            $('settingMicSensitivity').value = state.micSensitivity;
+            $('settingServerUrl').value = location.origin;
+        }
+
+        async function saveSettings() {
+            state.ttsVoice = $('settingVoice').value;
+            state.wakeWord = $('settingWakeWord').value;
+            state.sendShortcut = $('settingShortcut').value;
+            state.micSensitivity = $('settingMicSensitivity').value;
+            $('wakeWordDisplay').textContent = state.wakeWord;
+
+            // Persist to server
+            try {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tts_speed: state.ttsSpeed,
+                        tts_voice: state.ttsVoice,
+                        silence_threshold: state.silenceThreshold,
+                        wake_word: state.wakeWord,
+                    }),
+                });
+            } catch(e) { console.error('Settings save error:', e); }
+
+            // Save locally too
+            localStorage.setItem('bargrader_settings', JSON.stringify({
+                ttsSpeed: state.ttsSpeed,
+                ttsVoice: state.ttsVoice,
+                silenceThreshold: state.silenceThreshold,
+                wakeWord: state.wakeWord,
+                sendShortcut: state.sendShortcut,
+                micSensitivity: state.micSensitivity,
+                mode: state.mode,
+            }));
+        }
+
+        function restoreSettings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('bargrader_settings'));
+                if (saved) {
+                    Object.assign(state, saved);
+                    $('wakeWordDisplay').textContent = state.wakeWord;
+                }
+            } catch(e) {}
+        }
+
+        async function fetchServerInfo() {
+            try {
+                const resp = await fetch('/api/health');
+                const data = await resp.json();
+                $('settingDocCount').value = `${data.docs_loaded} chunks`;
+            } catch(e) {}
+        }
+
+        // ===== Init =====
+        function init() {
+            restoreSettings();
+            setupEventListeners();
+            setupKeyboardShortcuts();
+            connectWS();
+            startWakeWordDetection();
+            fetchServerInfo();
+
+            // Register service worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(e =>
+                    console.log('[SW] Registration failed:', e)
+                );
+            }
+        }
+
+        init();
+    })();
+    </script>
+</body>
+</html>

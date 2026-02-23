@@ -1,0 +1,17 @@
+# .gitignore
+venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+data/chromadb/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+build/
+.DS_Store
+*.ipa
+.pytest_cache/
+htmlcov/
+*.egg-info/
