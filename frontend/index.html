@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="BarGrader">
+    <meta name="apple-mobile-web-app-title" content="Bartender">
     <meta name="theme-color" content="#1a1a2e">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <title>BarGrader – CA Bar Exam AI Tutor</title>
+    <title>Bartender – CA Bar Exam AI Tutor</title>
     <style>
         /* ========== CSS Reset & Variables ========== */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -368,7 +368,7 @@
     <div class="app" id="app">
         <!-- Header -->
         <header class="header">
-            <h1>BarGrader</h1>
+            <h1>Bartender</h1>
             <span class="status-badge" id="statusBadge">Connecting...</span>
             <button class="settings-btn" id="settingsBtn" title="Settings">&#9881;</button>
         </header>
@@ -422,7 +422,7 @@
                 <button class="btn-send" id="btnSend" title="Send (Ctrl+Enter)">&#10148;</button>
             </div>
             <div class="input-hint" id="inputHint">
-                Voice: tap mic or say "<span id="wakeWordDisplay">hey bargrader</span>"
+                Voice: tap mic or say "<span id="wakeWordDisplay">hey bartender</span>"
                 &nbsp;|&nbsp; Keyboard: Ctrl+Enter to send
             </div>
         </div>
@@ -460,7 +460,7 @@
 
             <div class="setting-group">
                 <label>Wake Word</label>
-                <input type="text" id="settingWakeWord" value="hey bargrader" placeholder="e.g., hey bargrader">
+                <input type="text" id="settingWakeWord" value="hey bartender" placeholder="e.g., hey bartender">
             </div>
 
             <div class="setting-group">
@@ -512,7 +512,7 @@
             stream: null,
             silenceTimer: null,
             silenceThreshold: 2.0,
-            wakeWord: 'hey bargrader',
+            wakeWord: 'hey bartender',
             wakeWordActive: false,
             wakeWordRecognition: null,
             ttsSpeed: 1.0,
@@ -1064,7 +1064,7 @@
             } catch(e) { console.error('Settings save error:', e); }
 
             // Save locally too
-            localStorage.setItem('bargrader_settings', JSON.stringify({
+            localStorage.setItem('bartender_settings', JSON.stringify({
                 ttsSpeed: state.ttsSpeed,
                 ttsVoice: state.ttsVoice,
                 silenceThreshold: state.silenceThreshold,
@@ -1077,7 +1077,7 @@
 
         function restoreSettings() {
             try {
-                const saved = JSON.parse(localStorage.getItem('bargrader_settings'));
+                const saved = JSON.parse(localStorage.getItem('bartender_settings'));
                 if (saved) {
                     Object.assign(state, saved);
                     $('wakeWordDisplay').textContent = state.wakeWord;

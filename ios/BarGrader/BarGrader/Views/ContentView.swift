@@ -109,7 +109,7 @@ struct HeaderView: View {
 
     var body: some View {
         HStack {
-            Text("BarGrader")
+            Text("Bartender")
                 .font(.title3.bold())
                 .foregroundStyle(
                     LinearGradient(

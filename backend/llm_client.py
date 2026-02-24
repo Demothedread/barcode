@@ -1,5 +1,5 @@
 """
-BarGrader – LLM Client
+Bartender – LLM Client
 Streaming responses with automatic fallback chain:
   OpenAI → Gemini → Groq → GitHub Models (Claude) → local llama.cpp
 

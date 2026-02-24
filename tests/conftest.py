@@ -1,5 +1,5 @@
 """
-Shared fixtures for BarGrader tests.
+Shared fixtures for Bartender tests.
 
 Patches environment variables BEFORE importing any backend modules
 so Settings() never touches real API keys or .env files.

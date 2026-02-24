@@ -17,7 +17,7 @@ final class LocalLLMService: ObservableObject {
     private init() {}
 
     static let barExamSystemPrompt = """
-    You are BarGrader, a California Bar Exam tutor. Answer concisely and accurately.
+    You are Bartender, a California Bar Exam tutor. Answer concisely and accurately.
     Use IRAC format for essays. Cite specific legal rules and tests by name.
     """
 

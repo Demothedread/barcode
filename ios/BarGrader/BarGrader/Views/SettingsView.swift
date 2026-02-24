@@ -43,13 +43,15 @@ struct SettingsView: View {
                         HStack {
                             Text("Silence Detection")
                             Spacer()
-                            Text("\(state.silenceThreshold, specifier: "%.1f")s")
+                            Text(state.silenceThreshold == 0 ? "Manual" : "\(state.silenceThreshold, specifier: "%.1f")s")
                                 .foregroundColor(Color(hex: "e94560"))
                                 .font(.subheadline.bold())
                         }
-                        Slider(value: $state.silenceThreshold, in: 0.5...5.0, step: 0.5)
+                        Slider(value: $state.silenceThreshold, in: 0...10.0, step: 0.5)
                             .tint(Color(hex: "e94560"))
-                        Text("How long to wait after you stop speaking before auto-sending")
+                        Text(state.silenceThreshold == 0
+                             ? "Manual mode — tap Stop when you're done speaking. Best for long essays."
+                             : "Auto-sends after \(state.silenceThreshold, specifier: "%.1f")s of silence. Set to 0 for manual stop.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -61,18 +63,178 @@ struct SettingsView: View {
                     }
                 }
                 
-                // ---- Activation ----
-                Section("Activation") {
+                // ---- Connected Devices ----
+                Section("Connected Devices") {
+                    // Lav Mic / Input
                     HStack {
-                        Text("Wake Word")
+                        Label("Input", systemImage: "mic.fill")
                         Spacer()
-                        TextField("e.g., hey bargrader", text: $state.wakeWord)
-                            .multilineTextAlignment(.trailing)
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(state.isLavMicDetected ? Color.green : Color(hex: "8888aa"))
+                                .frame(width: 8, height: 8)
+                            VStack(alignment: .trailing, spacing: 1) {
+                                Text(state.detectedInputName)
+                                    .foregroundColor(state.isLavMicDetected ? .green : .secondary)
+                                    .font(.caption)
+                                Text(AppState.portLabel(state.detectedInputType))
+                                    .foregroundColor(.secondary)
+                                    .font(.caption2)
+                            }
+                        }
+                    }
+                    
+                    // Headphones / Output
+                    HStack {
+                        Label("Output", systemImage: "headphones")
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(state.isHeadphonesDetected ? Color.green : Color(hex: "8888aa"))
+                                .frame(width: 8, height: 8)
+                            VStack(alignment: .trailing, spacing: 1) {
+                                Text(state.detectedOutputName)
+                                    .foregroundColor(state.isHeadphonesDetected ? .green : .secondary)
+                                    .font(.caption)
+                                Text(AppState.portLabel(state.detectedOutputType))
+                                    .foregroundColor(.secondary)
+                                    .font(.caption2)
+                            }
+                        }
+                    }
+                    
+                    // BT Clicker
+                    HStack {
+                        Label("Clicker", systemImage: "button.programmable")
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(state.isClickerDetected ? Color.green : Color(hex: "8888aa"))
+                                .frame(width: 8, height: 8)
+                            Text(state.isClickerDetected ? "Paired" : "Not Detected")
+                                .foregroundColor(state.isClickerDetected ? .green : .secondary)
+                                .font(.caption)
+                        }
+                    }
+                    
+                    Button {
+                        state.refreshAudioRoutes()
+                    } label: {
+                        Label("Refresh Devices", systemImage: "arrow.clockwise")
+                            .font(.caption.weight(.semibold))
                             .foregroundColor(Color(hex: "e94560"))
                     }
                     
+                    if !state.isLavMicDetected {
+                        Text("Plug in your USB-C lav mic receiver. It will be auto-detected.")
+                            .font(.caption)
+                            .foregroundColor(Color(hex: "ffa502"))
+                    }
+                }
+                
+                // ---- Input Methods ----
+                Section {
+                    // Wake Word
+                    Toggle(isOn: $state.useWakeWord) {
+                        Label("Wake Word", systemImage: "waveform.circle")
+                    }
+                    .tint(Color(hex: "e94560"))
+                    
+                    if state.useWakeWord {
+                        HStack {
+                            Text("Phrase")
+                            Spacer()
+                            TextField("e.g., hey bartender", text: $state.wakeWord)
+                                .multilineTextAlignment(.trailing)
+                                .foregroundColor(Color(hex: "e94560"))
+                        }
+                    }
+                    
+                    // Siri Shortcut
+                    Toggle(isOn: $state.useSiriShortcut) {
+                        Label("Siri Shortcut", systemImage: "mic.badge.plus")
+                    }
+                    .tint(Color(hex: "e94560"))
+                    
+                    if state.useSiriShortcut {
+                        Text("Say \"Hey Siri, Ask Bartender\" to start recording hands‑free.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // BT Clicker – greyed when not connected
+                    HStack {
+                        Label("Bluetooth Clicker", systemImage: "button.programmable")
+                        Spacer()
+                        if state.isClickerDetected {
+                            Text("Connected")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        } else {
+                            Text("Not Detected")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                    .opacity(state.isClickerDetected ? 1.0 : 0.45)
+                    
+                    // Apple Watch – greyed when not paired
+                    HStack {
+                        Label("Apple Watch", systemImage: "applewatch")
+                        Spacer()
+                        if state.isWatchAvailable {
+                            Text("Paired")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        } else {
+                            Text("Unavailable")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                    .opacity(state.isWatchAvailable ? 1.0 : 0.45)
+                    
+                    // Auto-Start Recording
+                    Toggle(isOn: $state.autoStartRecording) {
+                        Label("Auto‑Start Recording", systemImage: "record.circle")
+                    }
+                    .tint(Color(hex: "e94560"))
+                    
+                    Text("Automatically begin recording when the app launches.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } header: {
+                    Text("Input Methods")
+                } footer: {
+                    Text("Greyed-out options require hardware that isn't currently connected.")
+                        .font(.caption2)
+                }
+                
+                // ---- Output ----
+                Section("Output") {
+                    Toggle(isOn: $state.immediateTTSPlayback) {
+                        Label("Immediate TTS Playback", systemImage: "speaker.wave.3.fill")
+                    }
+                    .tint(Color(hex: "e94560"))
+                    
+                    Text("Speak the answer aloud as soon as grading completes.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Toggle(isOn: $state.useSilentAudioSession) {
+                        Label("Silent Audio Session", systemImage: "speaker.slash.fill")
+                    }
+                    .tint(Color(hex: "ffa502"))
+                    
+                    Text("Keep mic active without speaker output. TTS is suppressed; answers appear on-screen only.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                // ---- Clicker / Keyboard Controls Reference ----
+                Section("Controls Reference") {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Bluetooth Clicker Controls")
+                        Text("Bluetooth Clicker")
                             .font(.subheadline.bold())
                         Group {
                             Label("Play → Start recording", systemImage: "play.circle")
@@ -229,7 +391,7 @@ struct SettingsView: View {
                         Text("1.0.0")
                             .foregroundColor(.secondary)
                     }
-                    Text("BarGrader – AI-powered California Bar Exam essay tutor using IRAC methodology with RAG-enhanced knowledge base.")
+                    Text("Bartender – AI-powered California Bar Exam essay tutor using IRAC methodology with RAG-enhanced knowledge base.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

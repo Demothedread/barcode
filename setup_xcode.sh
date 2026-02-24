@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ────────────────────────────────────────────────────────
-# BarGrader – Xcode Project Generator
+# Bartender – Xcode Project Generator
 # Run this to create the .xcodeproj so you can open in Xcode
 # ────────────────────────────────────────────────────────
 set -euo pipefail
@@ -11,7 +11,7 @@ PROJ_NAME="BarGrader"
 BUNDLE_ID="com.bargrader.app"
 TEAM_ID=""  # Set your Apple Developer Team ID here
 
-echo "=== BarGrader Xcode Project Setup ==="
+echo "=== Bartender Xcode Project Setup ==="
 echo ""
 
 # Check for xcodegen
@@ -50,8 +50,8 @@ targets:
       path: BarGrader/Info.plist
       properties:
         UIBackgroundModes: [audio, fetch]
-        NSMicrophoneUsageDescription: "BarGrader needs your microphone to listen to your bar exam questions."
-        NSSpeechRecognitionUsageDescription: "BarGrader uses speech recognition for wake word detection."
+        NSMicrophoneUsageDescription: "Bartender needs your microphone to listen to your bar exam questions."
+        NSSpeechRecognitionUsageDescription: "Bartender uses speech recognition for wake word detection."
 XCODEGEN_YML
     
     cd "$PROJECT_DIR"

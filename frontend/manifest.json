@@ -1,6 +1,6 @@
 {
-  "name": "BarGrader",
-  "short_name": "BarGrader",
+  "name": "Bartender",
+  "short_name": "Bartender",
   "description": "CA Bar Exam AI Essay Tutor",
   "start_url": "/",
   "display": "standalone",

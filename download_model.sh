@@ -59,7 +59,7 @@ DESC="${DESCRIPTIONS[$MODEL_KEY]}"
 SIZE="${SIZES[$MODEL_KEY]}"
 
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║  BarGrader — On-Device Model Download                       ║"
+echo "║  Bartender — On-Device Model Download                       ║"
 echo "╠══════════════════════════════════════════════════════════════╣"
 echo "║  Model: $DESC"
 echo "║  Size:  $SIZE"

@@ -1,5 +1,5 @@
 """
-BarGrader – IRAC Prompt Engineering
+Bartender – IRAC Prompt Engineering
 Builds the system and user prompts for California Bar Exam essay answers.
 
 Modes:
@@ -35,7 +35,7 @@ _OUTLINE_INSTRUCT = _load_instruction("outline_instruct.md")
 # System prompts
 # ---------------------------------------------------------------------------
 
-_COMMON_PREAMBLE = """You are BarGrader, an expert California Bar Exam essay tutor.
+_COMMON_PREAMBLE = """You are Bartender, an expert California Bar Exam essay tutor.
 
 ## Input Interpretation
 The user's question may come from voice dictation and contain:

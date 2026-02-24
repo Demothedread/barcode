@@ -1,5 +1,5 @@
 """
-BarGrader – RAG Engine (multi-backend)
+Bartender – RAG Engine (multi-backend)
 
 Backends:
   openai_vs  — OpenAI Vector Stores (primary, cloud-based, zero local deps)

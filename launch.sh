@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║  BarGrader — Master Launch Script                                ║
+# ║  Bartender — Master Launch Script                                ║
 # ║  One command to build & deploy to your connected iPhone          ║
 # ╚══════════════════════════════════════════════════════════════════╝
 #
@@ -34,7 +34,7 @@ fail()  { echo -e "  ${RED}✖${NC} $1"; exit 1; }
 # ── Help ──
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo ""
-    echo "BarGrader Launch Script"
+    echo "Bartender Launch Script"
     echo "━━━━━━━━━━━━━━━━━━━━━━"
     echo "  ./launch.sh              Build & deploy iOS app to connected iPhone"
     echo "  ./launch.sh --server     Also git-push backend to Railway"
@@ -50,7 +50,7 @@ fi
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║          BarGrader — Master Launch                           ║"
+echo "║          Bartender — Master Launch                           ║"
 echo "║          CA Bar Exam AI Tutor → iPhone                       ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
@@ -197,7 +197,7 @@ cd "$ROOT"
 # ──────────────────────────────────────────────────────
 # STEP 4: Build the app
 # ──────────────────────────────────────────────────────
-step "4/6  Building BarGrader for iPhone"
+step "4/6  Building Bartender for iPhone"
 
 BUILD_CMD=(
     xcodebuild
@@ -288,7 +288,7 @@ fi
 # ──────────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║  ${GREEN}✔ BarGrader is ready!${NC}                                      ║"
+echo "║  ${GREEN}✔ Bartender is ready!${NC}                                      ║"
 echo "╠══════════════════════════════════════════════════════════════╣"
 echo "║                                                              ║"
 echo "║  Your iPhone will show these prompts on first launch:        ║"

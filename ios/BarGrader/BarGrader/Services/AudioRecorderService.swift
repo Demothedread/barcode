@@ -20,7 +20,7 @@ final class AudioRecorderService: NSObject, AVAudioRecorderDelegate {
     
     func startRecording() {
         let tempDir = FileManager.default.temporaryDirectory
-        let fileName = "bargrader_recording_\(Date().timeIntervalSince1970).m4a"
+        let fileName = "bartender_recording_\(Date().timeIntervalSince1970).m4a"
         recordingURL = tempDir.appendingPathComponent(fileName)
         
         // Settings optimized for speech with high sensitivity
@@ -121,6 +121,13 @@ final class AudioRecorderService: NSObject, AVAudioRecorderDelegate {
     
     private func startSilenceDetection() {
         let threshold = appState?.silenceThreshold ?? 2.0
+        
+        // threshold == 0 means "Manual stop only" — no auto-silence detection
+        guard threshold > 0 else {
+            print("[Mic] Silence detection disabled (manual stop mode)")
+            return
+        }
+        
         let micSensitivity = appState?.micSensitivity ?? "high"
         
         // dB threshold: high sensitivity = detect very quiet audio

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ────────────────────────────────────────────────────────
-# BarGrader – Server Startup Script
+# Bartender – Server Startup Script
 # Starts the FastAPI backend that the iOS app connects to
 # ────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║          BarGrader – CA Bar Exam AI Tutor        ║"
+echo "║          Bartender – CA Bar Exam AI Tutor        ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 
@@ -77,7 +77,7 @@ if [ "$DOC_COUNT" = "0" ]; then
 fi
 
 # ── Start server ──
-echo "[▶] Starting BarGrader server..."
+echo "[▶] Starting Bartender server..."
 echo ""
 exec uvicorn backend.app:app \
     --host 0.0.0.0 \

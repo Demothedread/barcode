@@ -18,9 +18,16 @@ final class AppState: NSObject, ObservableObject {
     @AppStorage("ttsSpeed") var ttsSpeed: Double = 0.55  // ~80 WPM (TTS-1 baseline ~150 WPM)
     @AppStorage("ttsVoice") var ttsVoice: String = "nova"
     @AppStorage("silenceThreshold") var silenceThreshold: Double = 2.0
-    @AppStorage("wakeWord") var wakeWord: String = "hey bargrader"
+    @AppStorage("wakeWord") var wakeWord: String = "hey bartender"
     @AppStorage("micSensitivity") var micSensitivity: String = "high"
     @AppStorage("inputMode") var inputMode: InputMode = .voice
+    
+    // MARK: - Input Method Settings
+    @AppStorage("useWakeWord") var useWakeWord: Bool = true
+    @AppStorage("useSiriShortcut") var useSiriShortcut: Bool = false
+    @AppStorage("autoStartRecording") var autoStartRecording: Bool = false
+    @AppStorage("immediateTTSPlayback") var immediateTTSPlayback: Bool = true
+    @AppStorage("useSilentAudioSession") var useSilentAudioSession: Bool = false
     
     // MARK: - Runtime State
     @Published var statusText: String = "Ready"
@@ -48,6 +55,16 @@ final class AppState: NSObject, ObservableObject {
     /// True when online pipeline should be bypassed in favor of on-device model.
     @Published var isOfflineMode = false
     
+    // MARK: - Peripheral Detection
+    @Published var detectedInputName: String = "Built-in Mic"
+    @Published var detectedInputType: AVAudioSession.Port = .builtInMic
+    @Published var detectedOutputName: String = "Speaker"
+    @Published var detectedOutputType: AVAudioSession.Port = .builtInSpeaker
+    @Published var isLavMicDetected: Bool = false
+    @Published var isHeadphonesDetected: Bool = false
+    @Published var isClickerDetected: Bool = false
+    @Published var isWatchAvailable: Bool = false
+    
     private var wcSession: WCSession?
     
     private override init() {
@@ -61,6 +78,8 @@ final class AppState: NSObject, ObservableObject {
         localLLM = LocalLLMService.shared
         
         setupWatchConnectivity()
+        setupAudioRouteMonitoring()
+        refreshAudioRoutes()
         
         // Pre-load the on-device model in background so offline fallback is instant
         localLLM.preloadModel()
@@ -76,12 +95,100 @@ final class AppState: NSObject, ObservableObject {
         print("[iPhone] WatchConnectivity activated")
     }
     
+    // MARK: - Audio Route Monitoring
+    
+    private func setupAudioRouteMonitoring() {
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshAudioRoutes()
+            }
+        }
+    }
+    
+    /// Scan current audio routes and update peripheral detection state.
+    func refreshAudioRoutes() {
+        let session = AVAudioSession.sharedInstance()
+        let route = session.currentRoute
+        
+        // --- Input detection ---
+        let inputs = route.inputs
+        if let input = inputs.first {
+            detectedInputName = input.portName
+            detectedInputType = input.portType
+            isLavMicDetected = [
+                .usbAudio, .bluetoothHFP, .bluetoothLE, .headsetMic, .headphones
+            ].contains(input.portType)
+        } else {
+            // Check available (not yet active) inputs
+            let available = session.availableInputs ?? []
+            let external = available.first(where: {
+                [.usbAudio, .bluetoothHFP, .bluetoothLE, .headsetMic, .headphones]
+                    .contains($0.portType)
+            })
+            if let ext = external {
+                detectedInputName = ext.portName
+                detectedInputType = ext.portType
+                isLavMicDetected = true
+            } else {
+                detectedInputName = available.first?.portName ?? "No Mic"
+                detectedInputType = available.first?.portType ?? .builtInMic
+                isLavMicDetected = false
+            }
+        }
+        
+        // --- Output detection ---
+        let outputs = route.outputs
+        if let output = outputs.first {
+            detectedOutputName = output.portName
+            detectedOutputType = output.portType
+            isHeadphonesDetected = [
+                .headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE,
+                .usbAudio, .airPlay, .carAudio
+            ].contains(output.portType)
+        } else {
+            detectedOutputName = "Speaker"
+            detectedOutputType = .builtInSpeaker
+            isHeadphonesDetected = false
+        }
+        
+        // --- Clicker detection ---
+        // BT clickers appear as bluetoothHFP or bluetoothA2DP in the route,
+        // or as an external BT device that responds to media commands.
+        // We detect any paired BT audio device as a potential clicker.
+        let allPorts = inputs.map(\.portType) + outputs.map(\.portType)
+        let btPorts: Set<AVAudioSession.Port> = [.bluetoothHFP, .bluetoothA2DP, .bluetoothLE]
+        isClickerDetected = allPorts.contains(where: { btPorts.contains($0) })
+        
+        print("[Routes] Input: \(detectedInputName) (\(detectedInputType.rawValue)) | Output: \(detectedOutputName) (\(detectedOutputType.rawValue)) | Lav:\(isLavMicDetected) HP:\(isHeadphonesDetected) BT:\(isClickerDetected)")
+    }
+    
+    /// Human-readable label for a port type.
+    static func portLabel(_ port: AVAudioSession.Port) -> String {
+        switch port {
+        case .usbAudio:       return "USB-C"
+        case .bluetoothHFP:   return "Bluetooth HFP"
+        case .bluetoothA2DP:  return "Bluetooth A2DP"
+        case .bluetoothLE:    return "Bluetooth LE"
+        case .headsetMic:     return "Wired Headset"
+        case .headphones:     return "Headphones"
+        case .builtInMic:     return "Built-in Mic"
+        case .builtInSpeaker: return "Built-in Speaker"
+        case .airPlay:        return "AirPlay"
+        case .carAudio:       return "CarPlay"
+        default:              return port.rawValue
+        }
+    }
+    
     // MARK: - Actions
     
     func connectIfNeeded() {
         webSocketService.connect()
         remoteCommandService.setup()
-        if inputMode == .voice {
+        if inputMode == .voice && useWakeWord {
             wakeWordService.startListening()
         }
     }
@@ -151,6 +258,30 @@ final class AppState: NSObject, ObservableObject {
         } else {
             // Offline: use Apple's AVSpeechSynthesizer for TTS
             speakLocalTTS(answerText)
+        }
+        syncToWatch()
+    }
+    
+    /// Repeat only the last N sentences of the answer (voice command: "repeat last 3 sentences")
+    func repeatLastSentences(_ count: Int = 3) {
+        guard !answerText.isEmpty else { return }
+        
+        // Split on sentence-ending punctuation, keep non-empty
+        let sentences = answerText
+            .components(separatedBy: CharacterSet(charactersIn: ".!?"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        
+        let lastN = Array(sentences.suffix(count))
+        let excerpt = lastN.joined(separator: ". ") + "."
+        
+        ttsService.stop()
+        statusText = "Repeating last \(lastN.count) sentence\(lastN.count == 1 ? "" : "s")..."
+        
+        if isConnected && !isOfflineMode {
+            webSocketService.sendRepeat(excerpt)
+        } else {
+            speakLocalTTS(excerpt)
         }
         syncToWatch()
     }
@@ -257,8 +388,15 @@ final class AppState: NSObject, ObservableObject {
                 statusText = "⚡ Offline answer complete (local model)"
                 syncToWatch()
                 
-                // Speak the answer using Apple TTS (no server TTS available)
-                speakLocalTTS(answerText)
+                // Speak the answer using Apple TTS unless suppressed by settings
+                if immediateTTSPlayback && !useSilentAudioSession {
+                    speakLocalTTS(answerText)
+                }
+                
+                // Restart wake word listening after answer
+                if useWakeWord && inputMode == .voice {
+                    wakeWordService.restartIfNeeded()
+                }
                 
             } catch {
                 isProcessing = false
@@ -298,6 +436,8 @@ final class AppState: NSObject, ObservableObject {
     }
     
     func handleTTSAudio(_ base64: String) {
+        // Respect silent audio session — suppress all TTS playback
+        guard !useSilentAudioSession else { return }
         guard let data = Data(base64Encoded: base64) else { return }
         isSpeaking = true
         ttsService.enqueue(data)
@@ -319,6 +459,11 @@ final class AppState: NSObject, ObservableObject {
             statusText = "Answer complete. Would you like me to repeat?"
         }
         syncToWatch()
+        
+        // Restart wake-word listening so the user can say the next command hands-free
+        if useWakeWord && inputMode == .voice {
+            wakeWordService.restartIfNeeded()
+        }
     }
     
     func handleModeChange(mode: String, text: String) {
@@ -381,14 +526,19 @@ final class AppState: NSObject, ObservableObject {
 extension AppState: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         print("[iPhone] WC Session activated: \(activationState.rawValue)")
+        Task { @MainActor in
+            self.isWatchAvailable = (activationState == .activated) && session.isPaired && session.isWatchAppInstalled
+        }
     }
     
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
         print("[iPhone] WC Session inactive")
+        Task { @MainActor in self.isWatchAvailable = false }
     }
     
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
         print("[iPhone] WC Session deactivated")
+        Task { @MainActor in self.isWatchAvailable = false }
     }
     
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {

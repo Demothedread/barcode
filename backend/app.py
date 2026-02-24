@@ -1,5 +1,5 @@
 """
-BarGrader – Main FastAPI Application
+Bartender – Main FastAPI Application
 WebSocket-based real-time bar exam essay tutor.
 """
 import asyncio
@@ -32,24 +32,24 @@ from backend.llm_client import stream_llm_response, transcribe_audio, generate_t
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("[BarGrader] Starting up...")
+    print("[Bartender] Starting up...")
     doc_count = await rag_engine.doc_count()
     if doc_count == 0:
-        print("[BarGrader] No docs in vector store – ingesting from data/bar_exam_docs/...")
+        print("[Bartender] No docs in vector store – ingesting from data/bar_exam_docs/...")
         await rag_engine.ingest_directory()
     else:
-        print(f"[BarGrader] Vector store has {doc_count} chunks ready.")
+        print(f"[Bartender] Vector store has {doc_count} chunks ready.")
     # Pre-load local GGUF model so offline fallback has no cold-start delay
     preload_local_model()
-    print(f"[BarGrader] Server: {settings.server_url}")
-    print(f"[BarGrader] LLM chain: {settings.llm_fallback_chain}")
-    print(f"[BarGrader] RAG backend: {settings.rag_backend}")
+    print(f"[Bartender] Server: {settings.server_url}")
+    print(f"[Bartender] LLM chain: {settings.llm_fallback_chain}")
+    print(f"[Bartender] RAG backend: {settings.rag_backend}")
     yield
-    print("[BarGrader] Shutting down.")
+    print("[Bartender] Shutting down.")
 
 
 app = FastAPI(
-    title="BarGrader",
+    title="Bartender",
     description="California Bar Exam Essay AI Tutor with IRAC",
     version="1.0.0",
     lifespan=lifespan,
@@ -78,7 +78,7 @@ async def root():
     index = FRONTEND_DIR / "index.html"
     if index.exists():
         return HTMLResponse(content=index.read_text())
-    return HTMLResponse(content="<h1>BarGrader API</h1><p>Server is running. Connect via the iOS app.</p>")
+    return HTMLResponse(content="<h1>Bartender API</h1><p>Server is running. Connect via the iOS app.</p>")
 
 
 @app.get("/manifest.json")

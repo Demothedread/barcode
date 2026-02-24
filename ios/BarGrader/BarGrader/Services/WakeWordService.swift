@@ -3,7 +3,7 @@ import Speech
 import AVFoundation
 
 /// Always-on wake word detection using Apple's Speech framework.
-/// Runs in continuous mode to detect the wake word (e.g., "hey bargrader")
+/// Runs in continuous mode to detect the wake word (e.g., "hey bartender")
 /// even when the app is in the foreground idle state.
 /// When the wake word is detected, it triggers recording.
 @MainActor
@@ -64,7 +64,7 @@ final class WakeWordService {
         do {
             try audioEngine.start()
             isListening = true
-            print("[Wake] Listening for wake word: \(appState?.wakeWord ?? "hey bargrader")")
+            print("[Wake] Listening for wake word: \(appState?.wakeWord ?? "hey bartender")")
         } catch {
             print("[Wake] Engine start error: \(error)")
             return
@@ -75,7 +75,7 @@ final class WakeWordService {
             
             if let result = result {
                 let text = result.bestTranscription.formattedString.lowercased()
-                let wakeWord = (self.appState?.wakeWord ?? "hey bargrader").lowercased()
+                let wakeWord = (self.appState?.wakeWord ?? "hey bartender").lowercased()
                 
                 if text.contains(wakeWord) {
                     print("[Wake] Wake word detected! Triggering recording.")

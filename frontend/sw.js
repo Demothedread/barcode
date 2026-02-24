@@ -1,5 +1,5 @@
-// BarGrader Service Worker – enables PWA install & offline caching
-const CACHE_NAME = 'bargrader-v1';
+// Bartender Service Worker – enables PWA install & offline caching
+const CACHE_NAME = 'bartender-v1';
 const URLS_TO_CACHE = [
     '/',
     '/manifest.json',

@@ -1,4 +1,4 @@
-# BarGrader — California Bar Exam AI Tutor
+# Bartender — California Bar Exam AI Tutor
 
 Speak a bar exam question into your iPhone. Get an IRAC-formatted answer read back to you. Works online (Railway cloud) and offline (on-device LLM). One script to build and deploy.
 
@@ -77,7 +77,7 @@ Downloads LLM.swift and its dependencies. Takes 30–60 seconds on first run.
 ### Step 4 — Build
 
 ```
-▸ 4/6  Building BarGrader for iPhone
+▸ 4/6  Building Bartender for iPhone
   Building... (this may take 1-3 minutes on first run)
   ✔ Build succeeded
 ```
@@ -113,23 +113,23 @@ To push backend changes to Railway:
 
 ## First Launch on iPhone
 
-When you open BarGrader for the first time, iOS asks for three permissions in sequence:
+When you open Bartender for the first time, iOS asks for three permissions in sequence:
 
 ### Permission 1: Microphone
 
-> "BarGrader needs your microphone to listen to your bar exam questions."
+> "Bartender needs your microphone to listen to your bar exam questions."
 
 Tap **Allow**. Required for voice input.
 
 ### Permission 2: Speech Recognition
 
-> "BarGrader uses speech recognition for wake word detection."
+> "Bartender uses speech recognition for wake word detection."
 
-Tap **Allow**. Required for the wake word ("hey bargrader") and offline speech-to-text.
+Tap **Allow**. Required for the wake word ("hey bartender") and offline speech-to-text.
 
 ### Permission 3: Local Network
 
-> "BarGrader connects to a local server on your network for AI-powered grading."
+> "Bartender connects to a local server on your network for AI-powered grading."
 
 Tap **Allow**. Used for local development; not needed when using Railway.
 
@@ -147,7 +147,7 @@ The app opens to a dark screen with a mic button at the bottom and "Ready" at th
 
 ### Voice (default)
 
-1. Tap the **mic button** (or say "hey bargrader")
+1. Tap the **mic button** (or say "hey bartender")
 2. Ask your question: *"What are the elements of negligence under California law?"*
 3. Wait for the silence detection to auto-send (2 seconds of silence)
 4. Watch the IRAC answer stream in, then hear it read aloud
@@ -174,7 +174,7 @@ After an outline, the app asks: *"Would you like the full essay?"* — say "yes"
 
 ```
 ┌─────────────────────────────────────────┐
-│         iPhone (BarGrader.app)           │
+│         iPhone (Bartender.app)           │
 │                                         │
 │  Voice ──→ STT ──→ Question             │
 │                        │                │
@@ -218,7 +218,7 @@ The on-device model is smaller than GPT-4o. Answers are serviceable but less pol
 | Voice | Nova (female) | 6 OpenAI voices available online |
 | Silence Detection | 2.0s | How long to wait after you stop speaking |
 | Mic Sensitivity | High | Picks up whisper-level speech |
-| Wake Word | "hey bargrader" | Customizable |
+| Wake Word | "hey bartender" | Customizable |
 | Server URL | Railway URL | Pre-filled; change for local dev |
 | Force Offline | Off | Toggle to use on-device model even with internet |
 

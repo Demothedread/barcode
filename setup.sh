@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ────────────────────────────────────────────────────────
-# BarGrader – Full Setup Script (one-time)
+# Bartender – Full Setup Script (one-time)
 # Run this once to install everything and prepare the system
 # ────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║     BarGrader – One-Time Setup                   ║"
+echo "║     Bartender – One-Time Setup                   ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 

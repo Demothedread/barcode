@@ -102,7 +102,7 @@ final class RemoteCommandService {
         }
         
         // Set initial Now Playing info
-        updateNowPlayingInfo(title: "BarGrader", status: "Ready")
+        updateNowPlayingInfo(title: "Bartender", status: "Ready")
     }
     
     /// Update the lock screen / Control Center info display

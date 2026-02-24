@@ -1,5 +1,5 @@
 """
-BarGrader – California Bar Exam Essay AI Tutor
+Bartender – California Bar Exam Essay AI Tutor
 Configuration module
 
 LLM fallback chain:  OpenAI → Gemini → Groq → GitHub Models (Claude) → local llama.cpp
@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     tts_speed: float = 0.55             # ~80 WPM (TTS-1 baseline ~150 WPM at 1.0x)
     tts_voice: str = "nova"
     silence_threshold_seconds: float = 2.0
-    wake_word: str = "hey bargrader"
+    wake_word: str = "hey bartender"
     section_pause_seconds: float = 5.0  # pause between IRAC sections
 
     # ------------------------------------------------------------------

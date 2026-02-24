@@ -19,11 +19,11 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>BarGrader needs your microphone to listen to your bar exam questions.</string>
+	<string>Bartender needs your microphone to listen to your bar exam questions.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>BarGrader uses speech recognition for wake word detection.</string>
+	<string>Bartender uses speech recognition for wake word detection.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>BarGrader connects to a local server on your network for AI-powered grading.</string>
+	<string>Bartender connects to a local server on your network for AI-powered grading.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_http._tcp</string>
