@@ -7,6 +7,7 @@ struct BarGraderApp: App {
     
     init() {
         configureAudioSession()
+        observeAudioInterruptions()
     }
     
     var body: some Scene {
@@ -25,6 +26,8 @@ struct BarGraderApp: App {
                 }
         }
     }
+    
+    // MARK: - Audio Session Configuration
     
     /// Configure audio session for background operation + Bluetooth
     private func configureAudioSession() {
@@ -52,6 +55,73 @@ struct BarGraderApp: App {
             print("[Audio] Session configured\(useSilent ? " (silent/record-only)" : " for background + Bluetooth + USB-C")")
         } catch {
             print("[Audio] Session config error: \(error)")
+        }
+    }
+    
+    // MARK: - Audio Interruption Handling
+    
+    /// Recover automatically when a phone call, alarm, or other app steals the audio session.
+    /// Without this, the mic silently dies and the user has to force-quit.
+    private func observeAudioInterruptions() {
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { notification in
+            guard let info = notification.userInfo,
+                  let typeRaw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: typeRaw) else { return }
+            
+            switch type {
+            case .began:
+                print("[Audio] Interruption began (phone call / alarm / other app)")
+                // If we were recording, stop gracefully — the audio hardware is gone
+                Task { @MainActor in
+                    if AppState.shared.isRecording {
+                        AppState.shared.stopRecording()
+                        AppState.shared.statusText = "Recording paused — audio interrupted"
+                    }
+                }
+                
+            case .ended:
+                print("[Audio] Interruption ended")
+                // Check if we should resume
+                let shouldResume = (info[AVAudioSessionInterruptionOptionKey] as? UInt)
+                    .map { AVAudioSession.InterruptionOptions(rawValue: $0).contains(.shouldResume) } ?? false
+                
+                if shouldResume {
+                    // Re-activate the session
+                    do {
+                        try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+                        print("[Audio] Session reactivated after interruption")
+                    } catch {
+                        print("[Audio] Reactivation error: \(error)")
+                    }
+                    
+                    Task { @MainActor in
+                        AppState.shared.statusText = "Ready"
+                        // Refresh detected audio routes (USB-C mic may have changed)
+                        AppState.shared.refreshAudioRoutes()
+                    }
+                }
+                
+            @unknown default:
+                break
+            }
+        }
+        
+        // Also observe media services reset (extremely rare but fatal without handling)
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            print("[Audio] ⚠️ Media services were reset — reconfiguring from scratch")
+            self.configureAudioSession()
+            Task { @MainActor in
+                AppState.shared.refreshAudioRoutes()
+                AppState.shared.statusText = "Audio reset — ready"
+            }
         }
     }
 }

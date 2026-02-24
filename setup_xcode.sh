@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 PROJECT_DIR="ios/BarGrader"
 PROJ_NAME="BarGrader"
 BUNDLE_ID="com.bargrader.app"
-TEAM_ID=""  # Set your Apple Developer Team ID here
+TEAM_ID="K66F2V436N"  # Apple Developer Team ID
 
 echo "=== Bartender Xcode Project Setup ==="
 echo ""
