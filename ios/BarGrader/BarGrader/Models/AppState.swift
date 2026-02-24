@@ -11,7 +11,7 @@ final class AppState: NSObject, ObservableObject {
     static let shared = AppState()
     
     // MARK: - Connection
-    @AppStorage("serverURL") var serverURL: String = "http://192.168.1.100:8080"
+    @AppStorage("serverURL") var serverURL: String = "https://barcode-production-0db7.up.railway.app"
     @Published var isConnected = false
     
     // MARK: - Settings

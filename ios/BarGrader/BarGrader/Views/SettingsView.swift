@@ -139,12 +139,21 @@ struct SettingsView: View {
                                 Text("Loaded")
                                     .foregroundColor(.green)
                             }
+                        } else if state.localLLM.downloadProgress > 0 && state.localLLM.downloadProgress < 1.0 {
+                            HStack(spacing: 4) {
+                                ProgressView(value: state.localLLM.downloadProgress)
+                                    .frame(width: 60)
+                                    .tint(Color(hex: "ffa502"))
+                                Text("\(Int(state.localLLM.downloadProgress * 100))%")
+                                    .foregroundColor(Color(hex: "ffa502"))
+                                    .font(.caption)
+                            }
                         } else if let error = state.localLLM.loadError {
                             HStack(spacing: 4) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.red)
                                     .font(.caption)
-                                Text("Not Found")
+                                Text("Error")
                                     .foregroundColor(.red)
                             }
                         } else {
@@ -167,15 +176,22 @@ struct SettingsView: View {
                     
                     if state.localLLM.loadError != nil {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("To enable offline mode:")
+                            Text("Offline model will auto-download on first launch (~1.1 GB).")
                                 .font(.caption.bold())
                                 .foregroundColor(Color(hex: "ffa502"))
-                            Text("1. Run: ./download_model.sh")
-                            Text("2. Add bargrader-model.gguf to Xcode bundle")
-                            Text("3. Or place it in the app's Documents folder")
+                            Text("Requires WiFi for initial download. After that, works fully offline.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Button {
+                                state.localLLM.preloadModel()
+                            } label: {
+                                Label("Retry Download", systemImage: "arrow.clockwise.circle.fill")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundColor(Color(hex: "e94560"))
+                            }
+                            .padding(.top, 4)
                         }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                     }
                     
                     if state.localLLM.isGenerating {

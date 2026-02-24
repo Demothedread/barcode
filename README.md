@@ -1,291 +1,359 @@
-# BarGrader – California Bar Exam AI Essay Tutor
+# BarGrader — California Bar Exam AI Tutor
 
-A native iOS app + Python backend that gives you AI-powered, IRAC-formatted answers to California Bar Exam essay questions — via voice or Bluetooth keyboard — with real-time text-to-speech output at controllable speed.
+Speak a bar exam question into your iPhone. Get an IRAC-formatted answer read back to you. Works online (Railway cloud) and offline (on-device LLM). One script to build and deploy.
+
+---
+
+## Quick Start
+
+```bash
+cd bargrader
+./launch.sh
+```
+
+That's it. The script checks everything, installs dependencies, builds the app, and deploys to your connected iPhone. Read on for what to expect.
+
+---
+
+## What You Need
+
+| Requirement | Details |
+|-------------|---------|
+| **Mac** | macOS 13+ with Xcode installed |
+| **iPhone** | iOS 16+, connected via USB or same WiFi |
+| **Apple ID** | Free or paid, signed into Xcode |
+| **API Keys** | At minimum `OPENAI_API_KEY` in `.env` (for cloud mode) |
+
+Optional: USB-C dongle mic, Bluetooth clicker/keyboard, Apple Watch.
+
+---
+
+## What `./launch.sh` Does
+
+The script runs 6 steps. Here's exactly what you'll see:
+
+### Step 1 — Environment Check
+
+```
+▸ 1/6  Checking environment
+  ✔ Xcode: Xcode 16.2
+  ✔ CLI tools: /Applications/Xcode.app/Contents/Developer
+  ✔ Signing: Apple Development: you@email.com (XXXXXXXXXX)
+  ✔ iPhone: Your iPhone (00008110-XXXXXXXXXXXX)
+```
+
+**If Xcode CLI tools aren't installed**: The script runs `xcode-select --install`. A macOS dialog appears:
+
+> "The xcode-select command requires the command line developer tools. Would you like to install the tools now?"
+
+Click **Install**, wait for it to finish, then re-run `./launch.sh`.
+
+**If no signing identity is found**: Open Xcode → Settings (⌘,) → Accounts → click **+** → Add your Apple ID. Then re-run.
+
+**If no iPhone is detected**: Connect via USB cable. Your iPhone will show:
+
+> "Trust This Computer?"
+
+Tap **Trust** and enter your passcode. Re-run the script.
+
+### Step 2 — LLM.swift Package
+
+```
+▸ 2/6  Configuring LLM.swift package dependency
+  ✔ LLM.swift already in project
+```
+
+Adds the [LLM.swift](https://github.com/eastriverlee/LLM.swift) Swift Package (llama.cpp wrapper) to the Xcode project. Runs once; skips on subsequent launches.
+
+### Step 3 — Resolve Packages
+
+```
+▸ 3/6  Resolving Swift Package Manager dependencies
+  ✔ Packages resolved
+```
+
+Downloads LLM.swift and its dependencies. Takes 30–60 seconds on first run.
+
+### Step 4 — Build
+
+```
+▸ 4/6  Building BarGrader for iPhone
+  Building... (this may take 1-3 minutes on first run)
+  ✔ Build succeeded
+```
+
+Compiles the app for your physical iPhone (not simulator). First build takes 1–3 minutes; incremental builds are faster.
+
+**If the build fails**: The script shows the first 20 errors. Common fixes:
+- "Signing requires a development team" → Open the `.xcodeproj` in Xcode, select the BarGrader target → Signing & Capabilities → pick your team
+- "No provisioning profile" → Same place, enable "Automatically manage signing"
+
+### Step 5 — Install
+
+```
+▸ 5/6  Installing on iPhone
+  ✔ Built for Your iPhone — open Xcode to run (Cmd+R)
+```
+
+If `ios-deploy` is installed (`brew install ios-deploy`), it installs directly to the phone. Otherwise, open Xcode and press **⌘R**.
+
+### Step 6 — Backend (optional)
+
+```
+▸ 6/6  Backend (skipped — use --server to push to Railway)
+  Server: https://barcode-production-0db7.up.railway.app
+```
+
+To push backend changes to Railway:
+```bash
+./launch.sh --server
+```
+
+---
+
+## First Launch on iPhone
+
+When you open BarGrader for the first time, iOS asks for three permissions in sequence:
+
+### Permission 1: Microphone
+
+> "BarGrader needs your microphone to listen to your bar exam questions."
+
+Tap **Allow**. Required for voice input.
+
+### Permission 2: Speech Recognition
+
+> "BarGrader uses speech recognition for wake word detection."
+
+Tap **Allow**. Required for the wake word ("hey bargrader") and offline speech-to-text.
+
+### Permission 3: Local Network
+
+> "BarGrader connects to a local server on your network for AI-powered grading."
+
+Tap **Allow**. Used for local development; not needed when using Railway.
+
+### What Happens Next
+
+The app opens to a dark screen with a mic button at the bottom and "Ready" at the top.
+
+**If you have internet**: The app connects to Railway automatically. The status dot in Settings turns green.
+
+**If you're offline**: The app auto-downloads a 1.1 GB on-device model (SmolLM2-1.7B) on first use. This requires WiFi once. After that, everything works offline — no server needed.
+
+---
+
+## How to Use It
+
+### Voice (default)
+
+1. Tap the **mic button** (or say "hey bargrader")
+2. Ask your question: *"What are the elements of negligence under California law?"*
+3. Wait for the silence detection to auto-send (2 seconds of silence)
+4. Watch the IRAC answer stream in, then hear it read aloud
+
+### Keyboard
+
+1. Tap the **text field** at the bottom
+2. Type your question
+3. Press **Return** to send
+
+### Modes
+
+| Mode | How to activate | What you get |
+|------|----------------|--------------|
+| **Essay** | Default | Full IRAC analysis |
+| **Outline** | Say "outline only" or cycle via Settings | Bullet-point issue spotting |
+| **MBE** | Say "exam mode" or cycle via Settings | Answer letter + 1-2 sentence explanation |
+
+After an outline, the app asks: *"Would you like the full essay?"* — say "yes" or ask a new question.
+
+---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────┐
-│   iPhone (Native iOS App)        │
-│  ┌────────────────────────────┐  │
-│  │  SwiftUI Interface         │  │
-│  │  • Voice input (mic/dongle)│  │
-│  │  • BT keyboard input       │  │
-│  │  • Wake word detection      │  │
-│  │  • Lock screen controls     │  │
-│  │  • TTS playback             │  │
-│  │  • Essay / Outline modes    │  │
-│  └─────────┬──────────────────┘  │
-│            │ WebSocket            │
-└────────────┼─────────────────────┘
-             │
-┌────────────┼─────────────────────┐
-│   Mac Server (FastAPI)           │
-│  ┌─────────▼──────────────────┐  │
-│  │  WebSocket Handler         │  │
-│  │  • Whisper STT             │  │
-│  │  • Shorthand expansion     │  │
-│  │  • RAG retrieval           │  │
-│  │  • LLM streaming           │  │
-│  │  • TTS generation (80 WPM) │  │
-│  │  • Session state / modes   │  │
-│  └─────────┬──────────────────┘  │
-│  ┌─────────▼──────────────────┐  │
-│  │  RAG (dual backend)        │  │
-│  │  • OpenAI Vector Stores    │  │
-│  │  • ChromaDB (offline)      │  │
-│  └────────────────────────────┘  │
-│  ┌────────────────────────────┐  │
-│  │  LLM Fallback Chain        │  │
-│  │  OpenAI → Gemini → Grok   │  │
-│  │  → GitHub/Claude → local   │  │
-│  └────────────────────────────┘  │
-└──────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│         iPhone (BarGrader.app)           │
+│                                         │
+│  Voice ──→ STT ──→ Question             │
+│                        │                │
+│            ┌───────────┼────────────┐   │
+│            │ Online?   │            │   │
+│            │           ▼            │   │
+│            │  YES: WebSocket ───────┼──→ Railway Server
+│            │                        │   │  (FastAPI + GPT-4o
+│            │  NO: On-device LLM ──┐ │   │   + Whisper + TTS)
+│            └──────────────────────┼─┘   │
+│                                   │     │
+│  Answer ←── TTS ←── Text ←───────┘     │
+│                                         │
+│  Apple TTS (offline) / OpenAI TTS (online)
+└─────────────────────────────────────────┘
 ```
 
-## Features
+### Online (Railway cloud)
 
-### iOS App (Native Swift)
-- **Voice Input**: Tap mic or say the wake word to start dictating your question
-- **USB-C Dongle Mic**: Full support for external mics via Lightning/USB-C adapters
-- **Lock Screen Control**: Bluetooth clicker triggers recording/playback from lock screen
-- **Bluetooth Keyboard**: Full keyboard support with shortcuts for hands-free operation
-- **Wake Word**: Customizable activation phrase (default: "hey bargrader")
-- **Auto-send on Silence**: Detects when you stop speaking and auto-submits
-- **High Mic Sensitivity**: Captures whisper-level speech with gain boosting
-- **TTS Playback**: Streams the answer aloud at ~80 WPM with 5s section pauses
-- **Pause/Resume/Repeat**: Full playback controls from app and lock screen
-- **Essay / Outline Modes**: Say "outline only" for quick issue-spotting, then confirm for full essay
-- **Session Reset**: Say "next question" / "start over" to clear context
+- **STT**: OpenAI Whisper (server-side, tuned for legal terms)
+- **LLM**: Falls through: OpenAI → Gemini → Groq → GitHub Models → local
+- **RAG**: OpenAI Vector Stores with CA bar exam materials
+- **TTS**: OpenAI TTS at ~80 WPM with section pauses
 
-### Backend Server
-- **RAG-Enhanced**: Dual-backend retrieval (OpenAI Vector Stores primary, ChromaDB offline)
-- **IRAC Format**: All answers structured as Issue → Rule → Application → Conclusion per `essay_instruct.md`
-- **Nested IRAC**: Sub-issues get their own IR(irac)C analysis
-- **Streaming**: Tokens stream in real-time as the LLM generates
-- **LLM Fallback Chain**: OpenAI → Gemini → Grok (xAI) → GitHub Models (Claude) → local llama.cpp
-- **Shorthand Expansion**: Automatically expands legal abbreviations (K=contract, D=defendant, SOF, etc.)
-- **Whisper STT**: Server-side transcription tuned for legal terminology
-- **OpenAI TTS**: Voice output at ~80 WPM with [SECTION_BREAK] pauses between IRAC sections
-- **Offline Mode**: Local llama.cpp + ChromaDB when no internet is available
+### Offline (on-device)
 
-### Apple Watch Companion App (watchOS)
-- **Wireless Control**: Tap record button on your wrist to start dictating questions
-- **Real-time Status**: Watch displays: "🎙️ Listening...", "Processing...", "Streaming answer..."
-- **Answer Preview**: Shows first 2 lines of the IRAC response on the watch screen
-- **Full Playback Control**: Pause/resume, repeat, speed up (⏸️ ▶️ 🔄 🐇)
-- **Mode Sync**: Watch displays current mode badge (ESSAY/OUTLINE/MBE)
-- **iPhone Pairing**: WatchConnectivity sends commands to iPhone; iPhone does all heavy lifting (recording, LLM, TTS)
-- **Battery Efficient**: Watch is control surface only; background TTS continues on iPhone
-- **No Keyboard Input**: Voice-only on watch (full Bluetooth keyboard on iPhone)
+- **STT**: Apple SFSpeechRecognizer (built into iOS)
+- **LLM**: SmolLM2-1.7B-Instruct via LLM.swift (llama.cpp)
+- **RAG**: Baked-in legal knowledge (system prompt covers all CA bar subjects)
+- **TTS**: Apple AVSpeechSynthesizer
 
-### Bluetooth Controls (Lock Screen)
+The on-device model is smaller than GPT-4o. Answers are serviceable but less polished — it's "better than nothing" mode for flights, courthouses, and dead zones.
+
+---
+
+## Settings (Gear Icon)
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| Speaking Speed | 0.55x (~80 WPM) | Slider from 0.5x to 2.0x |
+| Voice | Nova (female) | 6 OpenAI voices available online |
+| Silence Detection | 2.0s | How long to wait after you stop speaking |
+| Mic Sensitivity | High | Picks up whisper-level speech |
+| Wake Word | "hey bargrader" | Customizable |
+| Server URL | Railway URL | Pre-filled; change for local dev |
+| Force Offline | Off | Toggle to use on-device model even with internet |
+
+### Offline Mode section
+
+- **Loaded** (green checkmark): Model is ready
+- **Downloading** (progress bar): Model is downloading from HuggingFace (~1.1 GB)
+- **Error** (red X): Tap "Retry Download" — needs WiFi for initial download
+
+---
+
+## Controls
+
+### Bluetooth Clicker (Lock Screen)
+
 | Button | Action |
 |--------|--------|
-| **Play** | Start recording your question |
-| **Pause** | Stop recording / Pause TTS playback |
-| **Next Track** | Repeat the answer |
-| **Previous Track** | Increase speaking speed |
-| **Stop** | Cancel everything / Cycle mode (when idle) |
+| **Play** | Start recording |
+| **Pause** | Stop recording / Pause TTS |
+| **Next Track** | Repeat answer |
+| **Previous Track** | Speed up |
+| **Stop** | Cancel / Cycle mode (when idle) |
 
-### Keyboard Shortcuts (BT Keyboard)
+### Bluetooth Keyboard
 
 | Key | Action |
 |-----|--------|
-| **Return** | Send typed question |
-| **Escape** | Stop recording / Cancel |
-| **Space** (unfocused) | Toggle microphone |
+| **Return** | Send question |
+| **Escape** | Stop / Cancel |
+| **Space** (unfocused) | Toggle mic |
 | **Page Up/Down** | Speed ±0.1x |
-| **F1** | Repeat answer |
-| **F2** | Pause/Resume |
-| **F3** | Stop playback |
 
-## Quick Start
+### Apple Watch (optional)
 
-### 1. Clone & Setup
-```bash
-cd /path/to/bargrader
-./setup.sh
-```
+Tap the record button on your wrist. The watch sends commands to the iPhone — it doesn't run the LLM itself. Requires WatchConnectivity and a paired Series 6+.
 
-### 2. Configure API Keys
-Edit `.env` (primary keys) and `.env.local` (vector store IDs):
+---
+
+## Backend (Railway)
+
+The server is deployed on Railway and auto-deploys on `git push`:
 
 ```bash
-cd /path/to/bargrader
-nano .env
-# optional:
-nano .env.local
+# Push backend changes
+./launch.sh --server
+
+# Or manually:
+git push origin main
 ```
-# .env — at minimum:
+
+**Railway dashboard**: https://railway.app/project/48bcf658-2499-45c7-87a2-5844a63f032c
+
+### API Keys
+
+Create a `.env` file in the `bargrader/` directory:
+
+```bash
+# Required
 OPENAI_API_KEY=sk-your-key-here
 
-# Optional backup providers:
+# Optional fallback providers
 GEMINI_API_KEY=your-gemini-key
-GROK_API_KEY=xai-your-key        # free tier at console.x.ai
-GITHUB_TOKEN=ghp_your-pat         # needs `models` scope for Claude
+GROK_API_KEY=xai-your-key
+GITHUB_TOKEN=ghp_your-pat
 
-# .env.local — OpenAI Vector Store IDs (from platform.openai.com):
+# OpenAI Vector Store IDs (for RAG)
 OPENAI_VECTOR_ESSAY_EXEMPLARY=vs_...
 OPENAI_VECTOR_SOURCE=vs_...
 OPENAI_VECTOR_ESSAY_ATTACK=vs_...
 ```
 
-### 3. Add Study Materials (for ChromaDB offline mode)
-Place your CA bar exam documents in `data/bar_exam_docs/`:
-- PDF outlines (Barbri, Themis, etc.)
-- Practice essay questions & model answers
-- Rule summaries, California code excerpts
-- Any `.pdf`, `.txt`, `.docx`, `.md` files
+Set these same variables in Railway → Variables for the deployed server.
 
-### 4. Start the Server
+### Local Development
+
 ```bash
+pip install -r requirements-local.txt
 ./start_server.sh
 ```
-Note the URL displayed (e.g., `http://192.168.1.100:8080`)
 
-### 5. Build the iOS App
-```bash
-# If you have xcodegen:
-./setup_xcode.sh
+Then change the Server URL in the app's Settings to `http://YOUR_MAC_IP:8080`.
 
-# Or create manually in Xcode:
-# 1. New iOS App → SwiftUI → BarGrader
-# 2. Copy all files from ios/BarGrader/BarGrader/ into the project
-Enables the app to continue limited work while in the background by turning on the **Audio** and **Background fetch** modes.
-
-### How to add it (iOS)
-1. Open the iOS project in **Xcode**.
-2. Select the app target → **Signing & Capabilities**.
-3. Click **+ Capability** and add **Background Modes**.
-4. In the Background Modes list, check:
-    - **Audio, AirPlay, and Picture in Picture**
-    - **Background fetch**
-
-### What this changes
-Xcode updates the app entitlements/Info.plist with `UIBackgroundModes`, typically including:
-- `audio`
-- `fetch`
-
-### Important follow-up
-Enabling the capability alone is not enough:
-- Implement background fetch handling in app code (e.g., AppDelegate/background task APIs).
-- Keep background work minimal and battery-friendly.
-- Test on a real device, since simulator behavior can differ.
-# 3. Add Background Modes capability (Audio + Background fetch)
-# 4. Build to your iPhone
-```
-
-### 6. Connect
-1. Open BarGrader on your iPhone
-2. Go to Settings (gear icon)
-3. Set the Server URL to your Mac's address
-4. Plug in your USB-C dongle mic if using external audio
-5. Start asking questions!
-
-### 6b. Build the Apple Watch Companion (Optional)
-1. In Xcode, add a new **watchOS App Target:**
-   - File → New → Target
-   - Select "Watch App" (not "Watch App for iOS App")
-   - Choose SwiftUI
-   - Name it "BarGrader Watch App"
-2. Copy the files from `ios/BarGrader/BarGrader Watch App/` into the new target
-3. Enable **WatchKit entitlements** on both targets (Xcode will auto-prompt)
-4. Build to your paired Apple Watch (Series 6 or later)
-5. When you open the iPhone app, watch will auto-sync via WatchConnectivity
-
-The watch companion runs independently:
-- **Large record button** on the watch face to start dictating
-- **Status display** shows what's happening
-- **Playback controls** let you pause/repeat/speed up from your wrist
-- **iPhone does all the work**: your watch just sends commands and receives status updates
-
-## iPhone Setup Tips
-
-
-### Keeping the App Alive
-The app uses **Background Audio mode** to stay alive. As long as it has an active audio session (recording or playing), iOS won't suspend it. The app automatically maintains this.
-
-### Bluetooth Clicker Setup
-1. Pair your Bluetooth clicker/remote with your iPhone
-2. The clicker's media buttons map to BarGrader controls automatically
-3. Works even from the lock screen via `MPRemoteCommandCenter`
-
-### Network Requirements
-- iPhone and Mac must be on the same WiFi network
-- Alternatively, use **Tailscale** or **ngrok** for remote access
-- For Tailscale: set `SERVER_URL` to your Tailscale IP
+---
 
 ## File Structure
 
 ```
 bargrader/
+├── launch.sh                # ← Run this. Builds & deploys everything.
 ├── backend/
-│   ├── app.py              # FastAPI server + WebSocket handler + session state
-│   ├── config.py           # Settings, fallback chain, dual .env loading
-│   ├── rag_engine.py       # Dual RAG: OpenAI Vector Stores + ChromaDB
-│   ├── llm_client.py       # Multi-provider LLM streaming + Whisper + TTS
-│   ├── prompts.py          # IRAC system prompt engineering + mode detection
-│   └── instructions/
-│       ├── essay_instruct.md   # CA bar essay writing rules (loaded at boot)
-│       └── outline_instruct.md # Terse outline mode instructions
-├── frontend/               # PWA fallback (also works in Safari)
-│   ├── index.html
-│   ├── manifest.json
-│   └── sw.js
+│   ├── app.py               # FastAPI + WebSocket server
+│   ├── config.py            # Settings, fallback chain config
+│   ├── rag_engine.py        # OpenAI Vector Stores + ChromaDB
+│   ├── llm_client.py        # Multi-provider LLM streaming
+│   ├── prompts.py           # IRAC system prompt + mode detection
+│   └── instructions/        # Essay / outline writing rules
 ├── ios/BarGrader/BarGrader/
-│   ├── BarGraderApp.swift  # App entry + audio session config
+│   ├── BarGraderApp.swift   # App entry + audio session
 │   ├── Models/
-│   │   └── AppState.swift  # Central state (mode, session, outline confirm)
+│   │   └── AppState.swift   # Central state manager
 │   ├── Views/
-│   │   ├── ContentView.swift   # Main UI + outline confirm + mode badge
-│   │   └── SettingsView.swift  # Settings panel
-│   ├── Services/
-│   │   ├── WebSocketService.swift        # WS connection + message routing
-│   │   ├── AudioRecorderService.swift    # Mic recording + silence detection
-│   │   ├── SpeechRecognitionService.swift # Live transcription
-│   │   ├── TTSPlaybackService.swift      # Audio queue + section pause handling
-│   │   ├── RemoteCommandService.swift    # Lock screen / BT controls
-│   │   └── WakeWordService.swift         # Always-on wake word listener
-│   ├── Info.plist
-│   └── BarGrader.entitlements
-├── tests/                  # pytest test suite
-│   ├── conftest.py         # Shared fixtures + env isolation
-│   ├── test_config.py
-│   ├── test_prompts.py
-│   ├── test_llm_client.py
-│   ├── test_rag_engine.py
-│   └── test_app.py
-├── data/
-│   └── bar_exam_docs/      # Your study materials go here
-├── .env.example
-├── .env.local              # Vector store IDs (git-ignored)
-├── requirements.txt
-├── pyproject.toml          # pytest config
-├── setup.sh                # One-time setup
-├── start_server.sh         # Start the backend
-└── setup_xcode.sh          # Generate Xcode project
+│   │   ├── ContentView.swift    # Main UI
+│   │   └── SettingsView.swift   # Settings panel
+│   └── Services/
+│       ├── LocalLLMService.swift         # On-device LLM (LLM.swift)
+│       ├── WebSocketService.swift        # Server connection
+│       ├── AudioRecorderService.swift    # Mic + silence detection
+│       ├── SpeechRecognitionService.swift # Apple STT
+│       ├── TTSPlaybackService.swift      # Audio playback
+│       ├── RemoteCommandService.swift    # BT / lock screen controls
+│       └── WakeWordService.swift         # Wake word listener
+├── frontend/                # PWA fallback (Safari)
+├── tests/                   # pytest suite
+├── requirements.txt         # Cloud dependencies
+├── requirements-local.txt   # + local dev dependencies
+├── nixpacks.toml            # Railway build config
+└── railway.json             # Railway deploy config
 ```
 
-## How It Works
+---
 
-1. **You speak or type** a bar exam essay question (including via USB-C dongle mic)
-2. **Audio** is sent to the server via WebSocket, transcribed by **Whisper**
-3. **Shorthand** is expanded (K→contract, D→defendant, SOF→Statute of Frauds, etc.)
-4. **RAG** retrieves relevant rules from OpenAI Vector Stores (or local ChromaDB)
-5. The question + context is sent through the **LLM fallback chain** with the IRAC system prompt
-6. **Tokens stream back** to the iPhone in real-time (you see the text appear)
-7. **TTS audio** is generated sentence-by-sentence at ~80 WPM with 5s section pauses
-8. When done, the app asks if you want any section repeated
-9. Say **"outline only"** for quick issue-spotting; then **"yes"** for the full essay
+## Troubleshooting
 
-## Requirements
+| Problem | Fix |
+|---------|-----|
+| "No module named pip" on Railway | Already fixed in `nixpacks.toml`. Just `git push`. |
+| Build fails with "no signing identity" | Xcode → Settings → Accounts → Add Apple ID |
+| Build fails with "no provisioning profile" | Xcode → Target → Signing → Enable "Automatically manage signing" |
+| iPhone not detected | USB cable + tap "Trust" on phone. Or same WiFi for wireless debugging. |
+| App says "Disconnected" | Check Railway is running. Or toggle "Force Offline" in Settings. |
+| Model download stuck | Needs WiFi. Tap "Retry Download" in Settings → Offline Mode. |
+| Watch not syncing | iPhone and Watch must be paired. Open the iPhone app first. |
+| `launch.sh` permission denied | `chmod +x launch.sh` |
 
-- **Mac**: Python 3.10+
-- **iPhone**: iOS 16+, optional USB-C dongle mic
-- **API Key**: OpenAI (required for Whisper STT + TTS); backup LLM keys optional
-- **Network**: Same WiFi or VPN between iPhone and Mac
-- **Optional**: ChromaDB + 4GB RAM (only for local RAG; not needed with OpenAI Vector Stores)
+---
 
 ## License
 
