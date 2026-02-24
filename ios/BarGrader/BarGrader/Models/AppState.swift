@@ -28,6 +28,7 @@ final class AppState: NSObject, ObservableObject {
     @AppStorage("autoStartRecording") var autoStartRecording: Bool = false
     @AppStorage("immediateTTSPlayback") var immediateTTSPlayback: Bool = true
     @AppStorage("useSilentAudioSession") var useSilentAudioSession: Bool = false
+    @AppStorage("useStopWord") var useStopWord: Bool = true
     
     // MARK: - Runtime State
     @Published var statusText: String = "Ready"
@@ -50,6 +51,7 @@ final class AppState: NSObject, ObservableObject {
     var ttsService: TTSPlaybackService!
     var remoteCommandService: RemoteCommandService!
     var wakeWordService: WakeWordService!
+    var stopWordService: StopWordService!
     var localLLM: LocalLLMService!
     
     /// True when online pipeline should be bypassed in favor of on-device model.
@@ -75,6 +77,7 @@ final class AppState: NSObject, ObservableObject {
         ttsService = TTSPlaybackService(appState: self)
         remoteCommandService = RemoteCommandService(appState: self)
         wakeWordService = WakeWordService(appState: self)
+        stopWordService = StopWordService(appState: self)
         localLLM = LocalLLMService.shared
         
         setupWatchConnectivity()
@@ -200,6 +203,10 @@ final class AppState: NSObject, ObservableObject {
         statusText = "Listening... speak now"
         wakeWordService.stopListening()
         audioRecorder.startRecording()
+        // Start listening for stop phrases ("stop bartender", "I'm done", etc.)
+        if useStopWord {
+            stopWordService.startListening()
+        }
         syncToWatch()
     }
     
@@ -207,6 +214,7 @@ final class AppState: NSObject, ObservableObject {
         guard isRecording else { return }
         isRecording = false
         statusText = "Processing audio..."
+        stopWordService.stopListening()
         audioRecorder.stopRecording()
         syncToWatch()
         // Audio data is sent via callback in AudioRecorderService

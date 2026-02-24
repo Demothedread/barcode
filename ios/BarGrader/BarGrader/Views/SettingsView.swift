@@ -203,6 +203,18 @@ struct SettingsView: View {
                     Text("Automatically begin recording when the app launches.")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    
+                    // Stop Word
+                    Toggle(isOn: $state.useStopWord) {
+                        Label("Voice Stop Command", systemImage: "stop.circle")
+                    }
+                    .tint(Color(hex: "e94560"))
+                    
+                    if state.useStopWord {
+                        Text("Say \"stop bartender\", \"I'm done\", or \"submit\" while recording to auto‑send your question.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 } header: {
                     Text("Input Methods")
                 } footer: {
