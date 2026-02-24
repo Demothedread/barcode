@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.bargrader.localllm</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -22,26 +26,16 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>UILaunchScreen</key>
-	<dict>
-		<key>UIColorName</key>
-		<string>AccentColor</string>
-	</dict>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>microphone</string>
-		<string>arm64</string>
-	</array>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Bartender needs your microphone to listen to your bar exam questions.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Bartender uses speech recognition for wake word detection.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Bartender connects to a local server on your network for AI-powered grading.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_http._tcp</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Bartender connects to a local server on your network for AI-powered grading.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Bartender needs your microphone to listen to your bar exam questions.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Bartender uses speech recognition for wake word detection.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
@@ -49,9 +43,14 @@
 		<string>bluetooth-central</string>
 		<string>processing</string>
 	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>AccentColor</string>
+	</dict>
+	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>com.bargrader.localllm</string>
+		<string>arm64</string>
 	</array>
 </dict>
 </plist>

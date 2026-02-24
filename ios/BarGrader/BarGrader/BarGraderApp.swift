@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import AppIntents
 
 @main
 struct BarGraderApp: App {
@@ -8,6 +9,8 @@ struct BarGraderApp: App {
     init() {
         configureAudioSession()
         observeAudioInterruptions()
+        // Register Siri Shortcut phrases so "Hey Siri, Hey Bartender" works
+        BartenderShortcuts.updateAppShortcutParameters()
     }
     
     var body: some Scene {
