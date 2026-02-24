@@ -9,7 +9,9 @@ struct BarGraderApp: App {
     init() {
         configureAudioSession()
         observeAudioInterruptions()
-        // Register Siri Shortcut phrases so "Hey Siri, Hey Bartender" works
+        // Register App Shortcuts with the Shortcuts app.
+        // Voice activation ("Hey Siri, Hey Bartender") requires paid Apple Developer Program.
+        // Without it, shortcuts still work when triggered manually from the Shortcuts app.
         BartenderShortcuts.updateAppShortcutParameters()
     }
     
