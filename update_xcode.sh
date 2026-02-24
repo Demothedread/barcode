@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 # ────────────────────────────────────────────────────────────────
-# Bartender – Xcode Project Update Script
+# Bartender – Xcode Project Update Script  (v2 — 2026-02-24)
 #
-# Run this after pulling the latest code to verify and update
-# the Xcode project for all new features:
+# Run after pulling the latest code. Verifies everything is wired
+# correctly for a real-device build on a FREE Apple Developer account.
 #
-#   • Siri Shortcuts (AppIntents)
-#   • Audio interruption recovery
-#   • Asset catalog (app icon + accent color)
-#   • Proper code signing for device deployment
+# Features covered:
+#   • Voice stop commands ("stop bartender", "I'm done", "submit")
+#   • Wake word detection ("hey bartender")
+#   • Siri Shortcuts (manual trigger via Shortcuts app — free account)
+#   • Audio interruption recovery (phone calls, alarms)
+#   • Asset catalog (app icon + accent color #E94560)
 #   • Background modes (audio, BT, fetch, processing)
-#   • USB-C / Bluetooth microphone detection
-#   • Watch companion app
-#   • On-device LLM (offline mode)
+#   • USB-C / Bluetooth microphone auto-detection
+#   • Apple Watch companion app (WatchConnectivity)
+#   • On-device LLM (offline mode via LLM.swift)
+#   • Silence detection (0–10s, 0 = manual stop)
 #
 # Usage:  ./update_xcode.sh
 # ────────────────────────────────────────────────────────────────
@@ -21,6 +24,7 @@ cd "$(dirname "$0")"
 
 XCODE_PROJECT="ios/BarGrader/BarGrader.xcodeproj"
 APP_DIR="ios/BarGrader/BarGrader"
+WATCH_DIR="ios/BarGrader/BarGrader Watch App"
 TEAM_ID="K66F2V436N"
 BUNDLE_ID="com.bargrader.app"
 
@@ -29,7 +33,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 pass() { echo -e "  ${GREEN}✓${NC} $1"; }
 warn() { echo -e "  ${YELLOW}⚠${NC} $1"; }
@@ -37,132 +41,146 @@ fail() { echo -e "  ${RED}✗${NC} $1"; }
 header() { echo -e "\n${CYAN}${BOLD}── $1 ──${NC}"; }
 manual() { echo -e "  ${YELLOW}→ MANUAL:${NC} $1"; }
 
+WARNINGS=0
+ERRORS=0
+track_warn() { ((WARNINGS++)) || true; warn "$1"; }
+track_fail() { ((ERRORS++)) || true; fail "$1"; }
+
 echo ""
-echo -e "${BOLD}═══════════════════════════════════════════════"
-echo " Bartender – Xcode Project Updater"
-echo "═══════════════════════════════════════════════${NC}"
+echo -e "${BOLD}═══════════════════════════════════════════════════"
+echo " Bartender – Xcode Project Updater  (v2)"
+echo " Free Apple Developer Account Compatible"
+echo "═══════════════════════════════════════════════════${NC}"
 
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
 header "1. Pre-flight Checks"
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
 
-# Check Xcode CLI tools
 if xcode-select -p &>/dev/null; then
     XCODE_PATH=$(xcode-select -p)
     pass "Xcode CLI tools: $XCODE_PATH"
 else
-    fail "Xcode command-line tools not found"
+    track_fail "Xcode command-line tools not found"
     echo "    Install with: xcode-select --install"
     exit 1
 fi
 
-# Check .xcodeproj exists
 if [ -d "$XCODE_PROJECT" ]; then
     pass "Project found: $XCODE_PROJECT"
 else
-    fail "Xcode project not found at $XCODE_PROJECT"
-    echo "    Run setup_xcode.sh first, or open Xcode and create the project."
+    track_fail "Xcode project not found at $XCODE_PROJECT"
+    echo "    Run setup_xcode.sh first, or create the project in Xcode."
     exit 1
 fi
 
-# Check Swift source files
 SWIFT_COUNT=$(find "$APP_DIR" -name "*.swift" | wc -l | tr -d ' ')
-pass "Swift source files: $SWIFT_COUNT"
+pass "Swift source files (iPhone): $SWIFT_COUNT"
 
-# ─────────────────────────────────────────
+WATCH_SWIFT=$(find "$WATCH_DIR" -name "*.swift" 2>/dev/null | wc -l | tr -d ' ')
+pass "Swift source files (Watch):  $WATCH_SWIFT"
+
+# ═══════════════════════════════════════════════════
 header "2. Asset Catalog"
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
 
 ASSETS_DIR="$APP_DIR/Assets.xcassets"
 if [ -d "$ASSETS_DIR" ]; then
     pass "Assets.xcassets exists"
 else
-    warn "Assets.xcassets missing — creating..."
+    track_warn "Assets.xcassets missing — creating..."
     mkdir -p "$ASSETS_DIR/AppIcon.appiconset" "$ASSETS_DIR/AccentColor.colorset"
-    echo '{"info":{"version":1,"author":"xcode"}}' > "$ASSETS_DIR/Contents.json"
-    echo '{"images":[{"idiom":"universal","platform":"ios","size":"1024x1024","filename":"app-icon.png"}],"info":{"version":1,"author":"xcode"}}' > "$ASSETS_DIR/AppIcon.appiconset/Contents.json"
-    echo '{"colors":[{"idiom":"universal","color":{"color-space":"srgb","components":{"red":"0.914","green":"0.271","blue":"0.376","alpha":"1.000"}}}],"info":{"version":1,"author":"xcode"}}' > "$ASSETS_DIR/AccentColor.colorset/Contents.json"
-    pass "Assets.xcassets created with brand red accent color (#E94560)"
+    cat > "$ASSETS_DIR/Contents.json" << 'EOF'
+{"info":{"version":1,"author":"xcode"}}
+EOF
+    cat > "$ASSETS_DIR/AppIcon.appiconset/Contents.json" << 'EOF'
+{"images":[{"idiom":"universal","platform":"ios","size":"1024x1024","filename":"app-icon.png"}],"info":{"version":1,"author":"xcode"}}
+EOF
+    cat > "$ASSETS_DIR/AccentColor.colorset/Contents.json" << 'EOF'
+{"colors":[{"idiom":"universal","color":{"color-space":"srgb","components":{"red":"0.914","green":"0.271","blue":"0.376","alpha":"1.000"}}}],"info":{"version":1,"author":"xcode"}}
+EOF
+    pass "Created with brand red accent color (#E94560)"
 fi
 
-# Check for app icon image
 if ls "$ASSETS_DIR/AppIcon.appiconset/"*.png &>/dev/null 2>&1; then
     pass "App icon image found"
 else
-    warn "No app icon image (PNG) in AppIcon.appiconset/"
-    manual "Add a 1024x1024 PNG named 'app-icon.png' to:"
-    echo "         $ASSETS_DIR/AppIcon.appiconset/"
-    echo "         (Or drag it into the AppIcon slot in Xcode's asset catalog editor)"
+    track_warn "No app icon PNG in AppIcon.appiconset/"
+    manual "Add a 1024×1024 PNG named 'app-icon.png' to $ASSETS_DIR/AppIcon.appiconset/"
 fi
 
-# ─────────────────────────────────────────
-header "3. Info.plist Verification"
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
+header "3. Info.plist"
+# ═══════════════════════════════════════════════════
 
 PLIST="$APP_DIR/Info.plist"
 if [ -f "$PLIST" ]; then
-    # Check critical keys
     check_plist_key() {
         if /usr/libexec/PlistBuddy -c "Print :$1" "$PLIST" &>/dev/null; then
             VALUE=$(/usr/libexec/PlistBuddy -c "Print :$1" "$PLIST" 2>/dev/null)
             pass "$1 = $VALUE"
         else
-            fail "$1 missing"
+            track_fail "$1 MISSING"
+            manual "$2"
             return 1
         fi
     }
     
-    check_plist_key "CFBundleDisplayName" || manual "Set CFBundleDisplayName to 'Bartender' in Info.plist"
-    check_plist_key "NSMicrophoneUsageDescription" || manual "Add microphone usage description"
-    check_plist_key "NSSpeechRecognitionUsageDescription" || manual "Add speech recognition usage description"
-    check_plist_key "ITSAppUsesNonExemptEncryption" || manual "Set ITSAppUsesNonExemptEncryption to NO (avoids App Store compliance delay)"
+    check_plist_key "CFBundleDisplayName" "Set to 'Bartender'" || true
+    check_plist_key "NSMicrophoneUsageDescription" "Add microphone usage string" || true
+    check_plist_key "NSSpeechRecognitionUsageDescription" "Add speech recognition string" || true
+    check_plist_key "ITSAppUsesNonExemptEncryption" "Set to NO" || true
     
-    # Check background modes
+    # Background modes
     if /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$PLIST" &>/dev/null; then
         MODES=$(/usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$PLIST" 2>/dev/null)
-        pass "UIBackgroundModes configured"
-        # Check for individual modes
         for mode in audio fetch bluetooth-central processing; do
             if echo "$MODES" | grep -q "$mode"; then
-                pass "  Background mode: $mode"
+                pass "  Background: $mode"
             else
-                warn "  Missing background mode: $mode"
+                track_warn "Missing background mode: $mode"
             fi
         done
     else
-        fail "UIBackgroundModes not set"
-        manual "Add background modes: audio, fetch, bluetooth-central, processing"
+        track_fail "UIBackgroundModes not set"
     fi
 else
-    fail "Info.plist not found at $PLIST"
+    track_fail "Info.plist not found"
 fi
 
-# ─────────────────────────────────────────
-header "4. Entitlements"
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
+header "4. Entitlements (Free Account)"
+# ═══════════════════════════════════════════════════
 
 ENTITLEMENTS="$APP_DIR/BarGrader.entitlements"
 if [ -f "$ENTITLEMENTS" ]; then
     pass "Entitlements file found"
     
+    # These work on free accounts:
     for key in "com.apple.security.app-sandbox" \
                "com.apple.security.network.client" \
                "com.apple.security.device.audio-input" \
-               "com.apple.security.device.bluetooth" \
-               "com.apple.developer.siri"; do
+               "com.apple.security.device.bluetooth"; do
         if /usr/libexec/PlistBuddy -c "Print :$key" "$ENTITLEMENTS" &>/dev/null; then
             pass "  $key"
         else
-            warn "  Missing: $key"
+            track_warn "Missing: $key"
         fi
     done
+    
+    # Siri requires PAID account — should NOT be active
+    if /usr/libexec/PlistBuddy -c "Print :com.apple.developer.siri" "$ENTITLEMENTS" &>/dev/null; then
+        track_warn "com.apple.developer.siri is ACTIVE — will fail on free account!"
+        manual "Remove or comment out the Siri entitlement in BarGrader.entitlements"
+    else
+        pass "  Siri entitlement correctly disabled (free account)"
+    fi
 else
-    fail "Entitlements file not found"
+    track_fail "Entitlements file not found"
 fi
 
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
 header "5. Source File Inventory"
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
 
 EXPECTED_FILES=(
     "BarGraderApp.swift"
@@ -173,6 +191,7 @@ EXPECTED_FILES=(
     "Services/SpeechRecognitionService.swift"
     "Services/TTSPlaybackService.swift"
     "Services/WakeWordService.swift"
+    "Services/StopWordService.swift"
     "Services/WebSocketService.swift"
     "Services/LocalLLMService.swift"
     "Services/RemoteCommandService.swift"
@@ -183,66 +202,68 @@ for f in "${EXPECTED_FILES[@]}"; do
     if [ -f "$APP_DIR/$f" ]; then
         pass "$f"
     else
-        fail "$f missing!"
+        track_fail "$f MISSING"
     fi
 done
 
-# ─────────────────────────────────────────
-header "6. Code Signing"
-# ─────────────────────────────────────────
+# Watch app
+WATCH_FILES=("BarGraderWatchApp.swift" "Models/WatchState.swift" "Views/ContentView.swift")
+for f in "${WATCH_FILES[@]}"; do
+    if [ -f "$WATCH_DIR/$f" ]; then
+        pass "Watch: $f"
+    else
+        track_warn "Watch: $f missing"
+    fi
+done
+
+# ═══════════════════════════════════════════════════
+header "6. Code Signing (pbxproj)"
+# ═══════════════════════════════════════════════════
 
 PBXPROJ="$XCODE_PROJECT/project.pbxproj"
 if [ -f "$PBXPROJ" ]; then
     pass "project.pbxproj exists"
     
-    # Fix deprecated signing identity
+    # Auto-fix deprecated identity
     if grep -q 'CODE_SIGN_IDENTITY = "iPhone Developer"' "$PBXPROJ"; then
-        warn "Fixing deprecated 'iPhone Developer' → 'Apple Development'"
+        track_warn "Fixing deprecated 'iPhone Developer' → 'Apple Development'"
         sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = "Apple Development"/g' "$PBXPROJ"
-        pass "Signing identity updated"
+        pass "Signing identity updated automatically"
     else
         pass "No deprecated signing identities"
     fi
     
-    # Ensure CODE_SIGN_STYLE = Automatic
     if grep -q "CODE_SIGN_STYLE = Automatic" "$PBXPROJ"; then
-        pass "Automatic code signing enabled"
+        pass "Automatic code signing"
     else
-        warn "CODE_SIGN_STYLE not set to Automatic in pbxproj"
-        manual "In Xcode → target → Signing & Capabilities → check 'Automatically manage signing'"
+        track_warn "CODE_SIGN_STYLE not Automatic"
+        manual "Xcode → Target → Signing & Capabilities → 'Automatically manage signing'"
     fi
     
-    # Check development team
-    if grep -q "DEVELOPMENT_TEAM = $TEAM_ID" "$PBXPROJ"; then
-        pass "Development team: $TEAM_ID"
+    if grep -q "DEVELOPMENT_TEAM" "$PBXPROJ"; then
+        pass "Development team is set"
     else
-        warn "Development team may not be set in pbxproj"
-        manual "In Xcode → target → Signing & Capabilities → select your team"
+        track_warn "No DEVELOPMENT_TEAM in pbxproj"
+        manual "Xcode → Target → Signing & Capabilities → select your team"
     fi
     
-    # Check Assets.xcassets is in build
-    if grep -q "Assets.xcassets" "$PBXPROJ"; then
-        pass "Assets.xcassets referenced in build"
-    else
-        warn "Assets.xcassets not found in pbxproj build phases"
-        manual "Drag Assets.xcassets from Finder into the BarGrader group in Xcode's project navigator"
-    fi
-    
-    # Check BartenderIntents.swift is in build
-    if grep -q "BartenderIntents.swift" "$PBXPROJ"; then
-        pass "BartenderIntents.swift in build"
-    else
-        warn "BartenderIntents.swift not in pbxproj"
-        manual "Drag BartenderIntents.swift into the Services group in Xcode and ensure 'Add to target: BarGrader' is checked"
-    fi
+    # Check new files are in the build
+    for item in "Assets.xcassets" "BartenderIntents.swift" "StopWordService.swift"; do
+        if grep -q "$item" "$PBXPROJ"; then
+            pass "$item in build"
+        else
+            track_warn "$item not in pbxproj"
+            manual "Drag $item into the project navigator in Xcode (check 'Add to target')"
+        fi
+    done
 else
-    warn "No project.pbxproj found (project may need to be regenerated)"
+    track_warn "No project.pbxproj (run xcodegen or create project in Xcode)"
 fi
 
-# Check if xcodegen can regenerate the project from project.yml
+# xcodegen offer
 if command -v xcodegen &> /dev/null; then
     echo ""
-    read -p "  Regenerate .xcodeproj from project.yml using xcodegen? [y/N] " -n 1 -r
+    read -p "  Regenerate .xcodeproj from project.yml? [y/N] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         pushd ios/BarGrader > /dev/null
@@ -251,85 +272,100 @@ if command -v xcodegen &> /dev/null; then
         pass "Regenerated .xcodeproj from project.yml"
     fi
 else
-    echo ""
-    echo "  Tip: install xcodegen (brew install xcodegen) to auto-regenerate"
-    echo "  the .xcodeproj from project.yml — useful after pulling new code."
+    echo "  Tip: brew install xcodegen to auto-regenerate .xcodeproj from project.yml"
 fi
 
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
 header "7. LLM Model (Offline Mode)"
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
 
 MODEL_FILE="$APP_DIR/bargrader-model.gguf"
 if [ -f "$MODEL_FILE" ]; then
     SIZE=$(du -h "$MODEL_FILE" | cut -f1)
-    pass "LLM model found: $MODEL_FILE ($SIZE)"
+    pass "LLM model found ($SIZE)"
 else
-    warn "No offline LLM model bundled"
-    echo "         The app will download it on first use (~1.1 GB)."
-    echo "         To pre-bundle: copy a .gguf model to $APP_DIR/"
+    echo "  ℹ  No bundled LLM model — app downloads on first offline use (~1.1 GB)"
 fi
 
-# ─────────────────────────────────────────
-header "8. Summary of Manual Steps"
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
+header "8. Railway Backend Status"
+# ═══════════════════════════════════════════════════
+
+RAILWAY_URL="https://barcode-production-0db7.up.railway.app"
+echo "  Checking $RAILWAY_URL/api/health ..."
+if command -v curl &>/dev/null; then
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$RAILWAY_URL/api/health" 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ]; then
+        pass "Railway backend is LIVE (HTTP 200)"
+    elif [ "$HTTP_CODE" = "000" ]; then
+        track_warn "Railway backend unreachable (timeout or network error)"
+    else
+        track_warn "Railway backend returned HTTP $HTTP_CODE"
+    fi
+else
+    echo "  (curl not found — skip health check)"
+fi
+
+# ═══════════════════════════════════════════════════
+header "9. Summary"
+# ═══════════════════════════════════════════════════
 
 echo ""
-echo -e "${BOLD}After running this script, open Xcode and verify:${NC}"
+echo -e "${BOLD}After this script, open Xcode and do:${NC}"
 echo ""
-echo -e "  ${CYAN}A. Signing & Capabilities tab:${NC}"
-echo "     1. 'Automatically manage signing' is CHECKED"
-echo "     2. Team is set to your Apple Developer account"
-echo "     3. Bundle Identifier is: $BUNDLE_ID"
-echo "     4. These capabilities are listed:"
-echo "        • App Sandbox"
-echo "        • Background Modes (audio, fetch, bluetooth-central, processing)"
-echo "        • Siri (required for Shortcuts)"
+echo -e "  ${CYAN}A. Signing & Capabilities:${NC}"
+echo "     • 'Automatically manage signing' → CHECK"
+echo "     • Team → your Apple ID (free is fine)"
+echo "     • Bundle ID → $BUNDLE_ID"
+echo "     • Do NOT add Siri capability (requires \$99/yr)"
 echo ""
-echo -e "  ${CYAN}B. If Siri capability is not listed:${NC}"
-echo "     1. Click '+' button in Signing & Capabilities"
-echo "     2. Search for 'Siri' and add it"
-echo "     3. This enables the AppIntents framework"
+echo -e "  ${CYAN}B. Drag missing files into Xcode navigator:${NC}"
+echo "     • Assets.xcassets → BarGrader group"
+echo "     • StopWordService.swift → Services group"
+echo "     • BartenderIntents.swift → Services group"
+echo "     • Check 'Add to target: BarGrader' for each"
 echo ""
-echo -e "  ${CYAN}C. App Icon:${NC}"
-echo "     1. Open Assets.xcassets in the navigator"
-echo "     2. Select 'AppIcon'"
-echo "     3. Drag a 1024×1024 PNG into the 'iOS App 1024pt' slot"
-echo "     4. Xcode auto-generates all required sizes"
+echo -e "  ${CYAN}C. App Icon (optional):${NC}"
+echo "     • Open Assets.xcassets → AppIcon → drag 1024×1024 PNG"
 echo ""
-echo -e "  ${CYAN}D. Build & Run on Device:${NC}"
-echo "     1. Connect your iPhone via USB-C or Wi-Fi"
-echo "     2. Select your device in the scheme picker (top bar)"
-echo "     3. Press ⌘R to build and run"
-echo "     4. If 'Untrusted Developer' appears on the phone:"
-echo "        Settings → General → VPN & Device Management → Trust"
+echo -e "  ${CYAN}D. Build & Run (⌘R):${NC}"
+echo "     • Connect iPhone via USB-C"
+echo "     • Select device in scheme picker"
+echo "     • First run: Settings → General → VPN & Device Mgmt → Trust"
+echo "     • Free account: re-deploy from Xcode every 7 days"
 echo ""
-echo -e "  ${CYAN}E. USB-C Microphone:${NC}"
-echo "     • No special Xcode configuration needed"
-echo "     • The app auto-detects USB-C, Bluetooth, and built-in mics"
-echo "     • Priority: USB-C > BT HFP > BT LE > Wired > Built-in"
-echo "     • Plug in the mic BEFORE starting a recording"
-echo "     • Check Settings → Connected Devices to verify detection"
-echo ""
-echo -e "  ${CYAN}F. Apple Watch:${NC}"
-echo "     • The Watch app target is included in the project"
-echo "     • Build to your paired Apple Watch via the scheme picker"
-echo "     • Watch ↔ iPhone communicate via WatchConnectivity"
+echo -e "  ${CYAN}E. All features (free account):${NC}"
+echo "     ✓ Wake word — \"hey bartender\" (on-device Speech framework)"
+echo "     ✓ Voice stop — \"stop bartender\", \"I'm done\", \"submit\""
+echo "     ✓ Silence auto-stop (0–10s slider, 0 = manual only)"
+echo "     ✓ Shortcuts app (manual trigger, Home Screen widget, Back Tap)"
+echo "     ✓ USB-C / BT mic auto-detection + priority routing"
+echo "     ✓ Apple Watch companion (start/stop/mode from wrist)"
+echo "     ✓ Offline LLM (on-device, ~1.1 GB download)"
+echo "     ✓ Background audio recording"
+echo "     ✓ Audio interruption recovery (phone calls, alarms)"
+echo "     ✗ \"Hey Siri, Hey Bartender\" (requires \$99/yr program)"
 echo ""
 
-# ─────────────────────────────────────────
-header "9. Opening Xcode"
-# ─────────────────────────────────────────
+# ═══════════════════════════════════════════════════
+header "10. Open Xcode"
+# ═══════════════════════════════════════════════════
 
-read -p "Open the project in Xcode now? [Y/n] " -n 1 -r
+TOTAL_CHECKED=$((${#EXPECTED_FILES[@]} + ${#WATCH_FILES[@]}))
+PASSED=$((TOTAL_CHECKED - ERRORS))
+echo ""
+echo -e "  Results: ${GREEN}${PASSED} passed${NC}, ${YELLOW}${WARNINGS} warnings${NC}, ${RED}${ERRORS} errors${NC}"
+echo ""
+
+read -p "  Open project in Xcode now? [Y/n] " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
     open "$XCODE_PROJECT"
-    pass "Opened $XCODE_PROJECT in Xcode"
+    pass "Opened in Xcode"
 else
-    echo "  To open later:  open $XCODE_PROJECT"
+    echo "  Later:  open $XCODE_PROJECT"
 fi
 
 echo ""
-echo -e "${GREEN}${BOLD}Done.${NC} Review the manual steps above, then build & run (⌘R)."
+echo -e "${GREEN}${BOLD}Done.${NC} Build & run with ⌘R."
 echo ""
