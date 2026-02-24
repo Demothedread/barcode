@@ -23,11 +23,11 @@ from backend.prompts import (
     strip_outline_trigger,
     strip_mbe_trigger,
 )
-from backend.llm_client import stream_llm_response, transcribe_audio, generate_tts, expand_shorthand
+from backend.llm_client import stream_llm_response, transcribe_audio, generate_tts, expand_shorthand, preload_local_model
 
 
 # ---------------------------------------------------------------------------
-# Lifespan – ingest docs on startup
+# Lifespan – ingest docs on startup, pre-load local model
 # ---------------------------------------------------------------------------
 
 @asynccontextmanager
@@ -39,6 +39,8 @@ async def lifespan(app: FastAPI):
         await rag_engine.ingest_directory()
     else:
         print(f"[BarGrader] Vector store has {doc_count} chunks ready.")
+    # Pre-load local GGUF model so offline fallback has no cold-start delay
+    preload_local_model()
     print(f"[BarGrader] Server: {settings.server_url}")
     print(f"[BarGrader] LLM chain: {settings.llm_fallback_chain}")
     print(f"[BarGrader] RAG backend: {settings.rag_backend}")
@@ -61,9 +63,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve frontend
+# Serve frontend (skip if directory missing — e.g. cloud deploy)
 FRONTEND_DIR = BASE_DIR / "frontend"
-app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +76,9 @@ app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 @app.get("/", response_class=HTMLResponse)
 async def root():
     index = FRONTEND_DIR / "index.html"
-    return HTMLResponse(content=index.read_text())
+    if index.exists():
+        return HTMLResponse(content=index.read_text())
+    return HTMLResponse(content="<h1>BarGrader API</h1><p>Server is running. Connect via the iOS app.</p>")
 
 
 @app.get("/manifest.json")

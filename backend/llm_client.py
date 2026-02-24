@@ -246,6 +246,35 @@ async def _stream_github(messages: list) -> AsyncGenerator[str, None]:
         yield t
 
 
+def preload_local_model() -> None:
+    """Pre-load the local GGUF model at startup so the first request is fast.
+    Call this once from server init (e.g., @app.on_event("startup")).
+    No-op if LOCAL_MODEL_PATH is not configured or llama-cpp-python is missing.
+    """
+    global _llama_model
+    if _llama_model is not None:
+        return
+    if not settings.local_model_path:
+        return
+    try:
+        from llama_cpp import Llama
+    except ImportError:
+        print("[LLM] llama-cpp-python not installed — local fallback unavailable")
+        return
+    import os
+    if not os.path.isfile(settings.local_model_path):
+        print(f"[LLM] Local model file not found: {settings.local_model_path}")
+        return
+    print(f"[LLM] Pre-loading local model: {settings.local_model_path}")
+    _llama_model = Llama(
+        model_path=settings.local_model_path,
+        n_ctx=settings.local_model_n_ctx,
+        n_gpu_layers=settings.local_model_n_gpu_layers,
+        verbose=False,
+    )
+    print("[LLM] Local model pre-loaded successfully")
+
+
 async def _stream_local(messages: list) -> AsyncGenerator[str, None]:
     """Stream from a local GGUF model via llama-cpp-python (offline fallback)."""
     try:
@@ -258,10 +287,10 @@ async def _stream_local(messages: list) -> AsyncGenerator[str, None]:
         yield "[ERROR] LOCAL_MODEL_PATH not configured in .env"
         return
 
-    # Lazy-load model (expensive; cached as module-level singleton)
+    # Use pre-loaded model, or lazy-load on first request
     global _llama_model
-    if "_llama_model" not in globals() or _llama_model is None:
-        print(f"[LLM] Loading local model: {settings.local_model_path}")
+    if _llama_model is None:
+        print(f"[LLM] Loading local model (cold start): {settings.local_model_path}")
         _llama_model = Llama(
             model_path=settings.local_model_path,
             n_ctx=settings.local_model_n_ctx,

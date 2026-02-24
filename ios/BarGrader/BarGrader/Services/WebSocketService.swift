@@ -2,6 +2,7 @@ import Foundation
 
 /// Manages the WebSocket connection to the BarGrader backend server.
 /// Handles reconnection, message parsing, and sending audio/text.
+@MainActor
 final class WebSocketService: NSObject, URLSessionWebSocketDelegate {
     private weak var appState: AppState?
     private var webSocket: URLSessionWebSocketTask?

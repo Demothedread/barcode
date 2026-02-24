@@ -27,6 +27,9 @@ targets:
     info:
       path: BarGrader/Info.plist
       properties:
-        UIBackgroundModes: [audio, fetch]
+        UIBackgroundModes: [audio, fetch, bluetooth-central, processing]
         NSMicrophoneUsageDescription: "BarGrader needs your microphone to listen to your bar exam questions."
         NSSpeechRecognitionUsageDescription: "BarGrader uses speech recognition for wake word detection."
+        NSLocalNetworkUsageDescription: "BarGrader connects to a local server on your network for AI-powered grading."
+        NSBonjourServices: ["_http._tcp"]
+        BGTaskSchedulerPermittedIdentifiers: ["com.bargrader.localllm"]

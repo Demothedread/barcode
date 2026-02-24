@@ -22,10 +22,22 @@
 	<string>BarGrader needs your microphone to listen to your bar exam questions.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>BarGrader uses speech recognition for wake word detection.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>BarGrader connects to a local server on your network for AI-powered grading.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
 		<string>fetch</string>
+		<string>bluetooth-central</string>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.bargrader.localllm</string>
 	</array>
 </dict>
 </plist>

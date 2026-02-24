@@ -6,6 +6,7 @@ import AVFoundation
 /// Runs in continuous mode to detect the wake word (e.g., "hey bargrader")
 /// even when the app is in the foreground idle state.
 /// When the wake word is detected, it triggers recording.
+@MainActor
 final class WakeWordService {
     private weak var appState: AppState?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))

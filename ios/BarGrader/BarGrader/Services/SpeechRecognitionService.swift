@@ -4,6 +4,7 @@ import AVFoundation
 
 /// On-device speech recognition for wake word detection and real-time transcription.
 /// Uses Apple's Speech framework — works offline for wake word, online for full transcription.
+@MainActor
 final class SpeechRecognitionService {
     private weak var appState: AppState?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))

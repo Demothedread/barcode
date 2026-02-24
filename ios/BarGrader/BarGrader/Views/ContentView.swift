@@ -127,16 +127,33 @@ struct HeaderView: View {
                 .background(modeBadgeColor.opacity(0.15))
                 .cornerRadius(6)
             
+            // Offline indicator
+            if state.isOfflineMode || !state.isConnected {
+                HStack(spacing: 3) {
+                    Image(systemName: "bolt.slash.fill")
+                        .font(.caption2)
+                    Text("OFFLINE")
+                        .font(.caption2.weight(.heavy))
+                }
+                .foregroundColor(Color(hex: "ffa502"))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color(hex: "ffa502").opacity(0.15))
+                .cornerRadius(6)
+            }
+            
             Spacer()
             
             // Connection badge
             HStack(spacing: 4) {
                 Circle()
-                    .fill(state.isConnected ? Color.green : Color.red)
+                    .fill(state.isConnected ? Color.green : (state.localLLM.isModelLoaded ? Color(hex: "ffa502") : Color.red))
                     .frame(width: 6, height: 6)
-                Text(state.isConnected ? "Connected" : "Offline")
+                Text(state.isConnected ? "Connected" :
+                        (state.localLLM.isModelLoaded ? "Local LLM" : "Offline"))
                     .font(.caption2)
-                    .foregroundColor(state.isConnected ? .green : .red)
+                    .foregroundColor(state.isConnected ? .green :
+                                        (state.localLLM.isModelLoaded ? Color(hex: "ffa502") : .red))
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)

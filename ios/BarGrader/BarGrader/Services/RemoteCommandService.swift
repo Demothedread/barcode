@@ -8,6 +8,7 @@ import MediaPlayer
 /// - Bluetooth clicker "pause" button → stops recording / pauses TTS
 /// - Volume buttons on headset → speed control
 /// - Lock screen controls show current status
+@MainActor
 final class RemoteCommandService {
     private weak var appState: AppState?
     

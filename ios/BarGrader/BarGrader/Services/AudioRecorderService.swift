@@ -3,6 +3,7 @@ import AVFoundation
 
 /// Records audio from the microphone (including Bluetooth mics).
 /// Detects silence to auto-stop, then sends the audio data to the backend.
+@MainActor
 final class AudioRecorderService: NSObject, AVAudioRecorderDelegate {
     private weak var appState: AppState?
     private var audioRecorder: AVAudioRecorder?

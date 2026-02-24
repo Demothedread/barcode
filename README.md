@@ -110,7 +110,13 @@ cd /path/to/bargrader
 
 ### 2. Configure API Keys
 Edit `.env` (primary keys) and `.env.local` (vector store IDs):
+
 ```bash
+cd /path/to/bargrader
+nano .env
+# optional:
+nano .env.local
+```
 # .env — at minimum:
 OPENAI_API_KEY=sk-your-key-here
 
@@ -146,6 +152,26 @@ Note the URL displayed (e.g., `http://192.168.1.100:8080`)
 # Or create manually in Xcode:
 # 1. New iOS App → SwiftUI → BarGrader
 # 2. Copy all files from ios/BarGrader/BarGrader/ into the project
+Enables the app to continue limited work while in the background by turning on the **Audio** and **Background fetch** modes.
+
+### How to add it (iOS)
+1. Open the iOS project in **Xcode**.
+2. Select the app target → **Signing & Capabilities**.
+3. Click **+ Capability** and add **Background Modes**.
+4. In the Background Modes list, check:
+    - **Audio, AirPlay, and Picture in Picture**
+    - **Background fetch**
+
+### What this changes
+Xcode updates the app entitlements/Info.plist with `UIBackgroundModes`, typically including:
+- `audio`
+- `fetch`
+
+### Important follow-up
+Enabling the capability alone is not enough:
+- Implement background fetch handling in app code (e.g., AppDelegate/background task APIs).
+- Keep background work minimal and battery-friendly.
+- Test on a real device, since simulator behavior can differ.
 # 3. Add Background Modes capability (Audio + Background fetch)
 # 4. Build to your iPhone
 ```

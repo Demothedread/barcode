@@ -15,3 +15,7 @@ build/
 .pytest_cache/
 htmlcov/
 *.egg-info/
+
+# Large model files
+*.gguf
+data/models/

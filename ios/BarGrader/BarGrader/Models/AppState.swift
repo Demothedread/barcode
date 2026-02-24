@@ -7,7 +7,7 @@ import WatchConnectivity
 
 /// Central app state – ObservableObject so all views react to changes
 @MainActor
-final class AppState: ObservableObject {
+final class AppState: NSObject, ObservableObject {
     static let shared = AppState()
     
     // MARK: - Connection
@@ -43,18 +43,27 @@ final class AppState: ObservableObject {
     var ttsService: TTSPlaybackService!
     var remoteCommandService: RemoteCommandService!
     var wakeWordService: WakeWordService!
+    var localLLM: LocalLLMService!
+    
+    /// True when online pipeline should be bypassed in favor of on-device model.
+    @Published var isOfflineMode = false
     
     private var wcSession: WCSession?
     
-    private init() {
+    private override init() {
+        super.init()
         webSocketService = WebSocketService(appState: self)
         audioRecorder = AudioRecorderService(appState: self)
         speechService = SpeechRecognitionService(appState: self)
         ttsService = TTSPlaybackService(appState: self)
         remoteCommandService = RemoteCommandService(appState: self)
         wakeWordService = WakeWordService(appState: self)
+        localLLM = LocalLLMService.shared
         
         setupWatchConnectivity()
+        
+        // Pre-load the on-device model in background so offline fallback is instant
+        localLLM.preloadModel()
     }
     
     // MARK: - WatchConnectivity Setup
@@ -98,25 +107,51 @@ final class AppState: ObservableObject {
     
     func sendText(_ text: String) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         resetAnswer()
         isProcessing = true
-        transcript = text
-        statusText = "Generating IRAC answer..."
+        transcript = cleaned
         typedText = ""
-        webSocketService.sendText(text.trimmingCharacters(in: .whitespacesAndNewlines))
+        
+        // Online-first: send to server if connected, fall back to on-device
+        if isConnected && !isOfflineMode {
+            statusText = "Generating IRAC answer..."
+            webSocketService.sendText(cleaned)
+        } else {
+            runLocalInference(question: cleaned)
+        }
     }
     
     func sendAudioData(_ data: Data) {
         isProcessing = true
-        statusText = "Transcribing audio..."
-        webSocketService.sendAudio(data)
+        
+        if isConnected && !isOfflineMode {
+            statusText = "Transcribing audio..."
+            webSocketService.sendAudio(data)
+        } else {
+            // Offline: use on-device Speech Recognition, then local LLM
+            statusText = "Transcribing locally..."
+            speechService.startLiveTranscription { [weak self] text, isFinal in
+                guard let self = self, isFinal else { return }
+                Task { @MainActor in
+                    self.transcript = text
+                    self.runLocalInference(question: text)
+                }
+            }
+        }
     }
     
     func repeatAnswer() {
         guard !answerText.isEmpty else { return }
         ttsService.stop()
         statusText = "Repeating answer..."
-        webSocketService.sendRepeat(answerText)
+        
+        if isConnected && !isOfflineMode {
+            webSocketService.sendRepeat(answerText)
+        } else {
+            // Offline: use Apple's AVSpeechSynthesizer for TTS
+            speakLocalTTS(answerText)
+        }
         syncToWatch()
     }
     
@@ -195,6 +230,55 @@ final class AppState: ObservableObject {
         isProcessing = true
         statusText = "Writing full essay from outline..."
         webSocketService.sendText("yes")
+    }
+    
+    // MARK: - Offline Inference (on-device llama.cpp fallback)
+    
+    /// Run a question through the on-device LLM when server is unreachable.
+    func runLocalInference(question: String) {
+        guard localLLM.isModelLoaded else {
+            statusText = "⚠️ No local model. Connect to server or add bargrader-model.gguf"
+            isProcessing = false
+            return
+        }
+        
+        statusText = "🔌 Offline — generating on-device..."
+        isOfflineMode = true
+        answerText = ""
+        
+        Task {
+            do {
+                for try await token in localLLM.stream(question: question, mode: currentMode) {
+                    answerText += token
+                }
+                
+                isProcessing = false
+                isAnswerComplete = true
+                statusText = "⚡ Offline answer complete (local model)"
+                syncToWatch()
+                
+                // Speak the answer using Apple TTS (no server TTS available)
+                speakLocalTTS(answerText)
+                
+            } catch {
+                isProcessing = false
+                statusText = "Local model error: \(error.localizedDescription)"
+                syncToWatch()
+            }
+        }
+    }
+    
+    /// Speak text using Apple's built-in AVSpeechSynthesizer (offline TTS).
+    /// Lower quality than OpenAI TTS but works without network.
+    private func speakLocalTTS(_ text: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = Float(ttsSpeed * 0.4)  // Scale down — AVSpeech rate is 0..1
+        utterance.pitchMultiplier = 1.0
+        
+        let synth = AVSpeechSynthesizer()
+        isSpeaking = true
+        synth.speak(utterance)
     }
     
     // MARK: - WS Message Handlers (called by WebSocketService)
@@ -280,9 +364,7 @@ final class AppState: ObservableObject {
         ]
         
         session.sendMessage(message, replyHandler: nil) { error in
-            if error != nil {
-                print("[Watch Sync] Error: \(error?.localizedDescription ?? "unknown")")
-            }
+            print("[Watch Sync] Error: \(error.localizedDescription)")
         }
     }
     
@@ -297,25 +379,25 @@ final class AppState: ObservableObject {
 // MARK: - WCSessionDelegate
 
 extension AppState: WCSessionDelegate {
-    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         print("[iPhone] WC Session activated: \(activationState.rawValue)")
     }
     
-    func sessionDidBecomeInactive(_ session: WCSession) {
+    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
         print("[iPhone] WC Session inactive")
     }
     
-    func sessionDidDeactivate(_ session: WCSession) {
+    nonisolated func sessionDidDeactivate(_ session: WCSession) {
         print("[iPhone] WC Session deactivated")
     }
     
-    func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
-        handleWatchMessage(message)
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        Task { @MainActor in self.handleWatchMessage(message) }
     }
     
-    func session(_ session: WCSession, didReceiveMessage message: [String : Any],
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String : Any],
                  replyHandler: @escaping ([String : Any]) -> Void) {
-        handleWatchMessage(message)
+        Task { @MainActor in self.handleWatchMessage(message) }
         replyHandler(["status": "received"])
     }
     
@@ -345,7 +427,6 @@ extension AppState: WCSessionDelegate {
             self.syncToWatch()
         }
     }
-}
 }
 
 // MARK: - Input Mode

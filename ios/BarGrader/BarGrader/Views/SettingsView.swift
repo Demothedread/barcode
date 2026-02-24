@@ -119,6 +119,76 @@ struct SettingsView: View {
                     }
                 }
                 
+                // ---- Offline / On-Device LLM ----
+                Section("Offline Mode") {
+                    Toggle("Force Offline", isOn: $state.isOfflineMode)
+                        .tint(Color(hex: "ffa502"))
+                    
+                    Text("When enabled, all queries use the on-device model instead of the server. Useful for testing or no-network scenarios.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    HStack {
+                        Text("Local Model")
+                        Spacer()
+                        if state.localLLM.isModelLoaded {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.caption)
+                                Text("Loaded")
+                                    .foregroundColor(.green)
+                            }
+                        } else if let error = state.localLLM.loadError {
+                            HStack(spacing: 4) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                                Text("Not Found")
+                                    .foregroundColor(.red)
+                            }
+                        } else {
+                            HStack(spacing: 4) {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                Text("Loading...")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    
+                    HStack {
+                        Text("Model File")
+                        Spacer()
+                        Text(LocalLLMService.bundledModelName)
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                    }
+                    
+                    if state.localLLM.loadError != nil {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("To enable offline mode:")
+                                .font(.caption.bold())
+                                .foregroundColor(Color(hex: "ffa502"))
+                            Text("1. Run: ./download_model.sh")
+                            Text("2. Add bargrader-model.gguf to Xcode bundle")
+                            Text("3. Or place it in the app's Documents folder")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    }
+                    
+                    if state.localLLM.isGenerating {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            Text("Generating response...")
+                                .font(.caption)
+                                .foregroundColor(Color(hex: "ffa502"))
+                        }
+                    }
+                }
+                
                 // ---- Keyboard ----
                 Section("Bluetooth Keyboard") {
                     VStack(alignment: .leading, spacing: 4) {

@@ -4,6 +4,7 @@ import AVFoundation
 /// Manages TTS audio playback with queue, pause/resume, speed control.
 /// Receives MP3 data chunks from the server and plays them sequentially.
 /// Supports section pauses (silence) between IRAC sections.
+@MainActor
 final class TTSPlaybackService: NSObject, AVAudioPlayerDelegate {
     private weak var appState: AppState?
     private var audioQueue: [PlaybackItem] = []
@@ -97,12 +98,12 @@ final class TTSPlaybackService: NSObject, AVAudioPlayerDelegate {
     
     // MARK: - AVAudioPlayerDelegate
     
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        playNext()
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in self.playNext() }
     }
     
-    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+    nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         print("[TTS] Decode error: \(String(describing: error))")
-        playNext()
+        Task { @MainActor in self.playNext() }
     }
 }
