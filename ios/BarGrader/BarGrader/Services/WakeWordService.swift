@@ -3,9 +3,14 @@ import Speech
 import AVFoundation
 
 /// Always-on wake word detection using Apple's Speech framework.
-/// Runs in continuous mode to detect the wake word (e.g., "hey bartender")
+/// Runs in continuous mode to detect the wake word (e.g., "hey bargrader")
 /// even when the app is in the foreground idle state.
 /// When the wake word is detected, it triggers recording.
+///
+/// Noise rejection: only checks NEW transcription segments (not the
+/// accumulated buffer) and requires the wake phrase to appear in the
+/// most recent text delta. This prevents stale/noisy partial results
+/// from repeatedly false-triggering.
 @MainActor
 final class WakeWordService {
     private weak var appState: AppState?
@@ -14,6 +19,8 @@ final class WakeWordService {
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
     private var isListening = false
+    /// Tracks the length of the last-checked transcription to avoid re-scanning old text.
+    private var lastCheckedLength = 0
     
     init(appState: AppState) {
         self.appState = appState
@@ -70,15 +77,28 @@ final class WakeWordService {
             return
         }
         
+        lastCheckedLength = 0
+        
         recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self = self else { return }
             
             if let result = result {
-                let text = result.bestTranscription.formattedString.lowercased()
-                let wakeWord = (self.appState?.wakeWord ?? "hey bartender").lowercased()
+                let fullText = result.bestTranscription.formattedString.lowercased()
+                let wakeWord = (self.appState?.wakeWord ?? "hey bargrader").lowercased()
                 
-                if text.contains(wakeWord) {
-                    print("[Wake] Wake word detected! Triggering recording.")
+                // Only check NEW text since last scan — prevents stale buffer
+                // false-triggers from accumulated background noise transcriptions.
+                let newTextStart = fullText.index(fullText.startIndex,
+                    offsetBy: min(self.lastCheckedLength, fullText.count))
+                let newText = String(fullText[newTextStart...])
+                self.lastCheckedLength = fullText.count
+                
+                // Also accept common misheard variants
+                let variants = [wakeWord, "hey bar grader", "a bargrader", "hey bar greater"]
+                let matched = variants.contains(where: { newText.contains($0) })
+                
+                if matched {
+                    print("[Wake] Wake word detected in new text: \"\(newText)\"")
                     self.stopListening()
                     Task { @MainActor in
                         self.appState?.startRecording()

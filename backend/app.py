@@ -22,6 +22,8 @@ from backend.prompts import (
     detect_mode_command,
     strip_outline_trigger,
     strip_mbe_trigger,
+    strip_quickhits_trigger,
+    strip_mbequiz_trigger,
 )
 from backend.llm_client import stream_llm_response, transcribe_audio, generate_tts, expand_shorthand, preload_local_model
 
@@ -178,7 +180,7 @@ class SessionState:
                  "awaiting_essay_confirm")
 
     def __init__(self):
-        self.mode: str = "essay"          # "essay", "outline", or "mbe"
+        self.mode: str = "essay"          # "essay", "outline", "mbe", "quickhits", or "mbequiz"
         self.last_question: str = ""
         self.last_outline: str = ""
         self.last_rag_context: str = ""
@@ -334,7 +336,47 @@ async def _route_question(ws: WebSocket, session: SessionState, raw_text: str):
         await _answer_question(ws, session, question, mode="mbe")
         return
 
+    # --- QUICK HITS ---
+    if command == "quickhits":
+        question = strip_quickhits_trigger(raw_text)
+        if not question.strip():
+            await ws.send_text(json.dumps({
+                "type": "error",
+                "text": "Please include a topic after 'quick hits'.",
+            }))
+            return
+        session.mode = "quickhits"
+        await ws.send_text(json.dumps({
+            "type": "mode_change",
+            "mode": "quickhits",
+            "text": "Quick Hits \u2014 rapid rule review...",
+        }))
+        await _answer_question(ws, session, question, mode="quickhits")
+        return
+
+    # --- MBE QUIZ ---
+    if command == "mbequiz":
+        question = strip_mbequiz_trigger(raw_text)
+        if not question.strip():
+            question = "Give me a random bar exam question"
+        session.mode = "mbequiz"
+        await ws.send_text(json.dumps({
+            "type": "mode_change",
+            "mode": "mbequiz",
+            "text": "MBE Quiz \u2014 generating question...",
+        }))
+        await _answer_question(ws, session, question, mode="mbequiz")
+        return
+
     # --- NORMAL QUESTION (essay mode) ---
+    # If already in mbequiz mode and user sends a non-command, treat it as a quiz answer
+    if session.mode == "mbequiz":
+        await _answer_question(ws, session, raw_text, mode="mbequiz")
+        return
+    # If already in quickhits mode, keep the mode
+    if session.mode == "quickhits":
+        await _answer_question(ws, session, raw_text, mode="quickhits")
+        return
     session.mode = "essay"
     session.awaiting_essay_confirm = False
     await _answer_question(ws, session, raw_text, mode="essay")
@@ -357,14 +399,18 @@ async def _answer_question(ws: WebSocket, session: SessionState, question: str, 
     messages = build_prompt(question, rag_context, mode=mode)
     if mode == "mbe":
         status_msg = "Answering bar exam question..."
+    elif mode == "quickhits":
+        status_msg = "Quick hit rule lookup..."
+    elif mode == "mbequiz":
+        status_msg = "MBE Quiz..."
     elif mode == "outline":
         status_msg = "Generating IRAC outline..."
     else:
         status_msg = "Generating IRAC answer..."
     await ws.send_text(json.dumps({"type": "status", "text": status_msg}))
 
-    # 3. Stream LLM tokens (MBE uses simple streaming — no section breaks)
-    if mode == "mbe":
+    # 3. Stream LLM tokens (MBE/QuickHits/MBEQuiz use simple streaming — no section breaks)
+    if mode in ("mbe", "quickhits", "mbequiz"):
         complete_text = await _stream_simple(ws, messages)
     else:
         complete_text = await _stream_with_tts(ws, messages)
@@ -382,7 +428,7 @@ async def _answer_question(ws: WebSocket, session: SessionState, question: str, 
             "type": "outline_prompt",
             "text": "Would you like me to write the full essay from this outline?",
         }))
-    elif mode == "mbe":
+    elif mode in ("mbe", "quickhits", "mbequiz"):
         session.last_outline = ""
         session.awaiting_essay_confirm = False
         await ws.send_text(json.dumps({

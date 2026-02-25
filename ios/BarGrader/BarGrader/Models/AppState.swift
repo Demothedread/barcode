@@ -18,7 +18,7 @@ final class AppState: NSObject, ObservableObject {
     @AppStorage("ttsSpeed") var ttsSpeed: Double = 0.55  // ~80 WPM (TTS-1 baseline ~150 WPM)
     @AppStorage("ttsVoice") var ttsVoice: String = "nova"
     @AppStorage("silenceThreshold") var silenceThreshold: Double = 2.0
-    @AppStorage("wakeWord") var wakeWord: String = "hey bartender"
+    @AppStorage("wakeWord") var wakeWord: String = "hey bargrader"
     @AppStorage("micSensitivity") var micSensitivity: String = "high"
     @AppStorage("inputMode") var inputMode: InputMode = .voice
     
@@ -41,7 +41,7 @@ final class AppState: NSObject, ObservableObject {
     @Published var isPaused = false
     @Published var showSettings = false
     @Published var typedText: String = ""
-    @Published var currentMode: String = "essay"   // "essay", "outline", or "mbe"
+    @Published var currentMode: String = "essay"   // "essay", "outline", "mbe", "quickhits", or "mbequiz"
     @Published var awaitingEssayConfirm = false     // outline done, awaiting "yes"
     
     // MARK: - Services
@@ -182,11 +182,13 @@ final class AppState: NSObject, ObservableObject {
                         mode: .default,
                         options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay, .mixWithOthers]
                     )
+                    // Force-remove any speaker override so BT output is restored
+                    try session.overrideOutputAudioPort(.none)
                     // Re-apply USB-C as preferred input after category change
                     if let usbInput = (session.availableInputs ?? []).first(where: { $0.portType == .usbAudio }) {
                         try session.setPreferredInput(usbInput)
                     }
-                    print("[Routes] Reconfigured: dropped .defaultToSpeaker to restore BT output with USB-C mic")
+                    print("[Routes] Reconfigured: dropped .defaultToSpeaker + overrideOutput(.none) to restore BT output with USB-C mic")
                 } else if detectedInputType == .builtInMic {
                     // Restore .defaultToSpeaker for normal speaker output
                     try session.setCategory(
@@ -370,13 +372,15 @@ final class AppState: NSObject, ObservableObject {
         webSocketService.sendReset()
     }
 
-    /// Cycle answer mode: essay → outline → mbe → essay
+    /// Cycle answer mode: essay → outline → mbe → quickhits → mbequiz → essay
     /// Called from BT stop button when idle, or from UI
     func cycleMode() {
         switch currentMode {
-        case "essay":   currentMode = "outline"
-        case "outline": currentMode = "mbe"
-        default:        currentMode = "essay"
+        case "essay":     currentMode = "outline"
+        case "outline":   currentMode = "mbe"
+        case "mbe":       currentMode = "quickhits"
+        case "quickhits": currentMode = "mbequiz"
+        default:          currentMode = "essay"
         }
         let label = currentMode.uppercased()
         statusText = "\(label) mode active"
@@ -391,6 +395,24 @@ final class AppState: NSObject, ObservableObject {
         currentMode = "mbe"
         statusText = "MBE exam mode active"
         webSocketService.sendText("exam mode")
+        syncToWatch()
+    }
+    
+    /// Enter Quick Hits mode — ultra-concise 1-4 sentence rule statements
+    func enterQuickHitsMode() {
+        guard currentMode != "quickhits" else { return }
+        currentMode = "quickhits"
+        statusText = "Quick Hits mode — rapid rule review"
+        webSocketService.sendText("quick hits")
+        syncToWatch()
+    }
+    
+    /// Enter MBE Quiz mode — AI generates MBE questions for the user
+    func enterMBEQuizMode() {
+        guard currentMode != "mbequiz" else { return }
+        currentMode = "mbequiz"
+        statusText = "MBE Quiz mode — quiz me!"
+        webSocketService.sendText("mbe quiz")
         syncToWatch()
     }
     
@@ -494,8 +516,10 @@ final class AppState: NSObject, ObservableObject {
         isAnswerComplete = true
         if awaitingEssayConfirm {
             statusText = "Outline complete. Say 'yes' for full essay, or ask a new question."
-        } else if currentMode == "mbe" {
+        } else if currentMode == "mbe" || currentMode == "quickhits" {
             statusText = "Answer delivered. Ask another question or say 'next question'."
+        } else if currentMode == "mbequiz" {
+            statusText = "Your turn — answer A, B, C, or D, or ask for another topic."
         } else {
             statusText = "Answer complete. Would you like me to repeat?"
         }

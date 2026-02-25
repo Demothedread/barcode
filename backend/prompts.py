@@ -6,6 +6,8 @@ Modes:
   - essay (default): Full IRAC essay answer per essay_instruct.md rules
   - outline: Terse issue/rule/exception outline only
   - mbe: Concise multiple-choice bar exam answers (single letter or 1-2 sentences)
+  - quickhits: Ultra-concise 1-4 sentence rule statements for rapid review
+  - mbequiz: Interactive MBE quiz — AI generates questions, student answers
   
 Includes shorthand interpretation, 80 WPM pacing, and section pause markers.
 """
@@ -139,6 +141,68 @@ EXAMPLES:
 You have access to curated California Bar Exam source materials provided as context below. Use them for accuracy.
 """
 
+_QUICKHITS_SYSTEM_PROMPT = _COMMON_PREAMBLE + """
+## Mode: QUICK HITS — Rapid Rule Review
+
+You are delivering ultra-concise rule statements for rapid-fire California Bar Exam review.
+
+RULES:
+- Give exactly 1-4 sentences per response. NEVER exceed 4 sentences.
+- State ONLY the governing rule, its key elements/test, and the California-specific version if different.
+- NO analysis. NO application. NO hypotheticals. NO IRAC. NO section breaks.
+- Use bullet-style if listing elements: "Elements: (1)..., (2)..., (3)..., (4)..."
+- If there's a CA/Fed split, state both in one sentence: "Fed: X. CA: Y."
+- Prioritize California law.
+- This will be spoken aloud at 1.0-1.5x speed — keep it punchy and clear.
+
+EXAMPLES:
+  Q: "negligence"
+  A: "Negligence requires duty, breach, causation (actual + proximate), and damages. CA imposes a general duty of care under Civ Code 1714. CA uses pure comparative fault — plaintiff's recovery is reduced by their percentage of fault but never barred."
+
+  Q: "hearsay"
+  A: "Hearsay is an out-of-court statement offered to prove the truth of the matter asserted, and is generally inadmissible. FRE 801/802; CA Evid Code 1200. CA Prop 8 (Truth-in-Evidence) makes all relevant evidence admissible in criminal cases unless a specific exclusionary rule applies."
+
+  Q: "community property"
+  A: "Property acquired during marriage while domiciled in CA is presumed community property. Separate property: owned before marriage, acquired by gift/bequest/devise/descent. Transmutation requires a writing with express declaration by the adversely affected spouse."
+
+## Context
+You have access to curated California Bar Exam source materials provided as context below.
+"""
+
+_MBEQUIZ_SYSTEM_PROMPT = _COMMON_PREAMBLE + """
+## Mode: MBE QUIZ — AI Asks, You Answer
+
+You are a bar exam tutor running an interactive MBE quiz session. Your job is to GENERATE multiple-choice questions for the student to answer.
+
+BEHAVIOR:
+1. When the student says a SUBJECT (e.g., "torts", "evidence", "con law"), generate ONE MBE-style multiple choice question on that subject.
+2. Format: State a fact pattern (2-4 sentences), then list options A through D. End with "What is your answer?"
+3. When the student responds with a LETTER (A, B, C, or D) or says their choice:
+   - State whether they are CORRECT or INCORRECT.
+   - Give the correct answer letter.
+   - Provide a 1-2 sentence explanation of WHY.
+   - Then say: "Want another question on [same subject], or switch topics?"
+4. Questions should test California-specific rules when applicable. Note CA/Fed splits.
+5. Each question should have ONE clearly best answer and THREE plausible distractors.
+6. Vary difficulty: mix easy recall, medium application, and hard edge-case questions.
+7. Do NOT use IRAC. Do NOT write essays. Do NOT use [SECTION_BREAK] markers.
+
+EXAMPLE QUESTION:
+"A homeowner hired a contractor to build an addition. The contract specified completion within 90 days. On day 85, the contractor told the homeowner he would not finish for another 60 days because he took on other projects. The homeowner immediately hired another contractor at a higher price. In the homeowner's breach of contract action, which damages may the homeowner recover?
+
+A. The difference in contract price between the two contractors
+B. The full contract price paid to the second contractor
+C. Lost rental income plus the price difference
+D. Punitive damages for the contractor's bad faith
+
+What is your answer?"
+
+EXAMPLE FEEDBACK:
+"CORRECT! The answer is A. Contract damages are measured by expectation — putting the plaintiff in the position they would have been in had the contract been performed. The difference in price between the original and substitute contractor is the standard cover measure. Punitive damages are generally not available in contract. Want another question on Contracts, or switch topics?"
+
+## Context
+You have access to curated California Bar Exam source materials provided as context below.
+"""
 
 # ---------------------------------------------------------------------------
 # Mode detection
@@ -151,17 +215,21 @@ _RESET_PATTERNS = re.compile(
 _OUTLINE_PATTERN = re.compile(r"\boutline\s+only\b", re.IGNORECASE)
 _MBE_PATTERN = re.compile(r"\b(exam\s+mode|question\s+mode)\b", re.IGNORECASE)
 _YES_PATTERN = re.compile(r"^(yes|yeah|yep|sure|go\s+ahead|do\s+it|please|ok|affirmative)\s*[.,!?]*$", re.IGNORECASE)
+_QUICKHITS_PATTERN = re.compile(r"\b(quick\s*hits?|rapid\s*fire|flash\s*cards?|rule\s+check)\b", re.IGNORECASE)
+_MBEQUIZ_PATTERN = re.compile(r"\b(mbe\s*quiz|quiz\s*me|test\s*me|practice\s*questions?)\b", re.IGNORECASE)
 
 
 def detect_mode_command(text: str) -> str:
     """Detect special mode/command phrases in the user input.
     
     Returns one of:
-      - 'reset'   : user wants to clear memory and start fresh
-      - 'outline' : user wants outline-only mode for this question
-      - 'mbe'     : MBE / exam mode — concise bar exam answers
-      - 'yes'     : user is confirming they want the full essay from the outline
-      - 'question': normal question, use default essay mode
+      - 'reset'    : user wants to clear memory and start fresh
+      - 'outline'  : user wants outline-only mode for this question
+      - 'mbe'      : MBE / exam mode — concise bar exam answers
+      - 'quickhits' : rapid-fire 1-4 sentence rule statements
+      - 'mbequiz'  : AI generates MBE questions, user answers
+      - 'yes'      : user is confirming they want the full essay from the outline
+      - 'question'  : normal question, use default essay mode
     """
     stripped = text.strip()
     if _RESET_PATTERNS.match(stripped):
@@ -170,6 +238,10 @@ def detect_mode_command(text: str) -> str:
         return "outline"
     if _MBE_PATTERN.search(stripped):
         return "mbe"
+    if _QUICKHITS_PATTERN.search(stripped):
+        return "quickhits"
+    if _MBEQUIZ_PATTERN.search(stripped):
+        return "mbequiz"
     if _YES_PATTERN.match(stripped):
         return "yes"
     return "question"
@@ -185,6 +257,16 @@ def strip_mbe_trigger(text: str) -> str:
     return _MBE_PATTERN.sub("", text).strip()
 
 
+def strip_quickhits_trigger(text: str) -> str:
+    """Remove the 'quick hits' / 'rapid fire' / etc. trigger phrase from the question text."""
+    return _QUICKHITS_PATTERN.sub("", text).strip()
+
+
+def strip_mbequiz_trigger(text: str) -> str:
+    """Remove the 'mbe quiz' / 'quiz me' / etc. trigger phrase from the question text."""
+    return _MBEQUIZ_PATTERN.sub("", text).strip()
+
+
 # ---------------------------------------------------------------------------
 # Prompt builders
 # ---------------------------------------------------------------------------
@@ -195,10 +277,14 @@ def build_prompt(question: str, rag_context: str = "", mode: str = "essay") -> l
     Args:
         question:    The user's bar exam question.
         rag_context: Formatted RAG retrieval context.
-        mode:        'essay' | 'outline' | 'mbe'.
+        mode:        'essay' | 'outline' | 'mbe' | 'quickhits' | 'mbequiz'.
     """
     if mode == "mbe":
         system_prompt = _MBE_SYSTEM_PROMPT
+    elif mode == "quickhits":
+        system_prompt = _QUICKHITS_SYSTEM_PROMPT
+    elif mode == "mbequiz":
+        system_prompt = _MBEQUIZ_SYSTEM_PROMPT
     elif mode == "outline":
         system_prompt = _OUTLINE_SYSTEM_PROMPT
     else:

@@ -93,17 +93,21 @@ struct HeaderView: View {
     
     private var modeBadgeLabel: String {
         switch state.currentMode {
-        case "outline": return "OUTLINE"
-        case "mbe":     return "MBE"
-        default:        return "ESSAY"
+        case "outline":   return "OUTLINE"
+        case "mbe":       return "MBE"
+        case "quickhits": return "QUICK HITS"
+        case "mbequiz":   return "MBE QUIZ"
+        default:          return "ESSAY"
         }
     }
 
     private var modeBadgeColor: Color {
         switch state.currentMode {
-        case "outline": return Color(hex: "ffa502")
-        case "mbe":     return Color(hex: "e94560")
-        default:        return Color(hex: "4ecdc4")
+        case "outline":   return Color(hex: "ffa502")
+        case "mbe":       return Color(hex: "e94560")
+        case "quickhits": return Color(hex: "00d2ff")
+        case "mbequiz":   return Color(hex: "a855f7")
+        default:          return Color(hex: "4ecdc4")
         }
     }
 

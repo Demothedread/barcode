@@ -63,6 +63,48 @@ struct SettingsView: View {
                     }
                 }
                 
+                // ---- Answer Modes ----
+                Section("Answer Modes") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Tap to switch answer mode")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        ForEach([
+                            ("essay", "ESSAY", "Full IRAC essay answers", "doc.text.fill", "4ecdc4"),
+                            ("outline", "OUTLINE", "Issue-spotting outline only", "list.bullet.indent", "ffa502"),
+                            ("mbe", "MBE", "Concise bar exam answers", "checkmark.circle.fill", "e94560"),
+                            ("quickhits", "QUICK HITS", "1-4 sentence rule statements", "bolt.fill", "00d2ff"),
+                            ("mbequiz", "MBE QUIZ", "AI quizzes you with MBE questions", "questionmark.circle.fill", "a855f7"),
+                        ], id: \.0) { mode, label, desc, icon, color in
+                            Button {
+                                state.currentMode = mode
+                                state.statusText = "\(label) mode active"
+                            } label: {
+                                HStack {
+                                    Image(systemName: icon)
+                                        .foregroundColor(Color(hex: color))
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(label)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundColor(.white)
+                                        Text(desc)
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    if state.currentMode == mode {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(Color(hex: color))
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                }
+                
                 // ---- Connected Devices ----
                 Section("Connected Devices") {
                     // Lav Mic / Input

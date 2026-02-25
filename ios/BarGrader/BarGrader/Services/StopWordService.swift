@@ -24,6 +24,8 @@ final class StopWordService {
     
     /// All recognized stop phrases (lowercased). Order matters — longest first for greedy match.
     private let stopPhrases: [String] = [
+        "stop bargrader",
+        "stop bar grader",
         "stop bartender",
         "stop recording",
         "done recording",
