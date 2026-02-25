@@ -167,6 +167,39 @@ final class AppState: NSObject, ObservableObject {
         isClickerDetected = allPorts.contains(where: { btPorts.contains($0) })
         
         print("[Routes] Input: \(detectedInputName) (\(detectedInputType.rawValue)) | Output: \(detectedOutputName) (\(detectedOutputType.rawValue)) | Lav:\(isLavMicDetected) HP:\(isHeadphonesDetected) BT:\(isClickerDetected)")
+        
+        // Fix USB-C mic stealing Bluetooth output:
+        // When USB-C input is active but output fell back to speaker,
+        // and .defaultToSpeaker is the culprit, reconfigure without it.
+        // When USB-C is unplugged (back to built-in mic), restore .defaultToSpeaker
+        // so TTS plays through the loud speaker instead of the earpiece.
+        let useSilent = UserDefaults.standard.bool(forKey: "useSilentAudioSession")
+        if !useSilent {
+            do {
+                if detectedInputType == .usbAudio && detectedOutputType == .builtInSpeaker {
+                    try session.setCategory(
+                        .playAndRecord,
+                        mode: .default,
+                        options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay, .mixWithOthers]
+                    )
+                    // Re-apply USB-C as preferred input after category change
+                    if let usbInput = (session.availableInputs ?? []).first(where: { $0.portType == .usbAudio }) {
+                        try session.setPreferredInput(usbInput)
+                    }
+                    print("[Routes] Reconfigured: dropped .defaultToSpeaker to restore BT output with USB-C mic")
+                } else if detectedInputType == .builtInMic {
+                    // Restore .defaultToSpeaker for normal speaker output
+                    try session.setCategory(
+                        .playAndRecord,
+                        mode: .default,
+                        options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay, .defaultToSpeaker, .mixWithOthers]
+                    )
+                    print("[Routes] Restored .defaultToSpeaker (no USB-C mic)")
+                }
+            } catch {
+                print("[Routes] Audio session reconfigure error: \(error)")
+            }
+        }
     }
     
     /// Human-readable label for a port type.

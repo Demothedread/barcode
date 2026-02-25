@@ -57,6 +57,19 @@ final class AudioRecorderService: NSObject, AVAudioRecorderDelegate {
             if let input = preferredInput {
                 try session.setPreferredInput(input)
                 print("[Mic] Using external mic: \(input.portName) (\(input.portType.rawValue))")
+                
+                // When using USB-C mic, reconfigure audio session WITHOUT .defaultToSpeaker.
+                // Without this, iOS treats USB-C as a wired route, drops Bluetooth output,
+                // and .defaultToSpeaker sends audio to the built-in speaker instead.
+                if input.portType == .usbAudio {
+                    try session.setCategory(
+                        .playAndRecord,
+                        mode: .default,
+                        options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay, .mixWithOthers]
+                    )
+                    try session.setPreferredInput(input)  // re-apply after category change
+                    print("[Mic] Reconfigured session for USB-C input (no .defaultToSpeaker) to preserve BT output")
+                }
             } else {
                 print("[Mic] Using built-in microphone")
             }
